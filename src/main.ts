@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as fs from 'fs';
+import { RolesService } from './roles/roles.service';
 
 
 async function bootstrap() {
@@ -14,6 +15,11 @@ async function bootstrap() {
   });
 
   app.useGlobalPipes(new ValidationPipe({forbidUnknownValues: false}));
+
+  // Inicia la semilla de datos para roles predeterminados.
+  // Esto asegura que ADMIN y CLIENT existan en la tabla de roles al arrancar.
+  const rolesService = app.get(RolesService);
+  await rolesService.seedDefaultRoles();
 
   // Configuración para la documentacion swagger
   const config = new DocumentBuilder()
