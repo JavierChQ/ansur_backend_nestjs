@@ -34,7 +34,7 @@ async function bootstrap() {
   // configura la ruta para acceder a la documentacion
   SwaggerModule.setup("docs", app, document);
 
-  // await app.listen(parseInt(process.env.PORT) || 3000);
-  await app.listen(3000, '192.168.1.29' || 'localhost');
+  await app.listen(parseInt(process.env.PORT) || 3000);
+  // await app.listen(3000, '192.168.1.10' || 'localhost');
 }
 bootstrap();
