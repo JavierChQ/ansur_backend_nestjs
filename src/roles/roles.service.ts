@@ -22,9 +22,9 @@ export class RolesService {
         const defaultRoles: CreateRolDto[] = [
             {
                 id: 'SUPER_ADMIN',
-                name: 'SuperAdministrador',
+                name: 'Super Administrador',
                 image: 'https://res.cloudinary.com/dcnoa5sdu/image/upload/v1780119704/super_admin_wewn9z.png',
-                route: 'admin/home',
+                route: 'super_admin/home',
             },
             {
                 id: 'ADMIN',
