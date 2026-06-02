@@ -9,8 +9,14 @@ import { RolesService } from './roles/roles.service';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
+    origin: [
+      'https://www.ansur.com.pe',
+      'https://ansur.com.pe',
+      'http://admin.ansur.com.pe',
+      'http://localhost:3000',
+    ],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true,
   });
 
@@ -35,6 +41,5 @@ async function bootstrap() {
   SwaggerModule.setup("docs", app, document);
 
   await app.listen(parseInt(process.env.PORT) || 3000);
-  // await app.listen(3000, '192.168.1.10' || 'localhost');
 }
 bootstrap();
