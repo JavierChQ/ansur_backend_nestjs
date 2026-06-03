@@ -12,8 +12,8 @@ async function bootstrap() {
     origin: [
       'https://www.ansur.com.pe',
       'https://ansur.com.pe',
-      'http://admin.ansur.com.pe',
-      'http://localhost:3000',
+      'https://admin.ansur.com.pe',
+      'http://localhost:4200',
     ],
     allowedHeaders: ['Content-Type', 'Authorization'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
