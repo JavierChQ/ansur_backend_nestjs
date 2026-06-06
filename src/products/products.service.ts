@@ -8,35 +8,53 @@ import asyncForEach = require('../utils/async_foreach');
 import { ConfigService } from '@nestjs/config';
 import {v2 as cloudinary} from 'cloudinary';
 import { configureCloudinary } from '../cloudinary/cloudinary.config';
+import { InventoryService } from '../inventory/inventory.service';
 
 @Injectable()
 export class ProductsService {
 
-    constructor(@InjectRepository(Product) 
-    private productsRepository: Repository<Product>,
-    private configService: ConfigService,
-) {
-    configureCloudinary(this.configService);
-}
+    constructor(
+        @InjectRepository(Product)
+        private productsRepository: Repository<Product>,
+        private configService: ConfigService,
+        private inventoryService: InventoryService,
+    ) {
+        configureCloudinary(this.configService);
+    }
 
-    findAll() {
-        return this.productsRepository.find();
+    async findAll() {
+        const products = await this.productsRepository.find();
+        return this.attachStockStatus(products);
     }
     
-    findByCategory(id_category: number) {
-        return this.productsRepository.findBy({ id_category: id_category });
+    async findByCategory(id_category: number) {
+        const products = await this.productsRepository.findBy({ id_category });
+        return this.attachStockStatus(products);
     }
 
-    findById(id: number) {
-        return this.productsRepository.findOneBy({ id: id });
+    async findById(id: number) {
+        const product = await this.productsRepository.findOneBy({ id });
+        if (!product) return null;
+        const [mapped] = await this.attachStockStatus([product]);
+        return mapped;
     }
 
     // async paginate(options: IPaginationOptions): Promise<Pagination<Product>> {
     //     return paginate<Product>(this.productsRepository, options);
     // }
 
-    findByName(name: string) {
-        return this.productsRepository.find({ where : { name: Like(`%${name}%`) }})
+    async findByName(name: string) {
+        const products = await this.productsRepository.find({ where: { name: Like(`%${name}%`) } });
+        return this.attachStockStatus(products);
+    }
+
+    private async attachStockStatus(products: Product[]) {
+        const ids = products.map((p) => p.id);
+        const availability = await this.inventoryService.getAvailabilityMap(ids);
+        return products.map((product) => ({
+            ...product,
+            in_stock: availability.get(product.id) ?? false,
+        }));
     }
 
     async create(files: Array<Express.Multer.File>, product: CreateProductDto) {
@@ -47,8 +65,17 @@ export class ProductsService {
 
         let uploadedFiles = 0; // CONTAR CUANTOS ARCHIVOS SE HAN SUBIDO A FIREBASE
 
-        const newProduct = this.productsRepository.create(product);
-        const savedProduct = await this.productsRepository.save(newProduct);        
+        const { initial_stock = 0, min_stock = 0, ...productData } = product;
+        const newProduct = this.productsRepository.create(productData);
+        const savedProduct = await this.productsRepository.save(newProduct);
+
+        await this.inventoryService.createForProduct(
+            savedProduct.id,
+            initial_stock,
+            min_stock,
+            undefined,
+            'Stock inicial',
+        );
 
         const startForEach = async () => {
             await asyncForEach(files, async (file: Express.Multer.File) => {

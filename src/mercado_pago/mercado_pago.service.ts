@@ -1,7 +1,7 @@
 import { HttpService } from '@nestjs/axios/dist';
-import { Injectable, HttpException } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { AxiosResponse, AxiosError } from 'axios';
-import { Observable, catchError, map } from 'rxjs';
+import { catchError, firstValueFrom, map } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 import { MERCADO_PAGO_API } from 'src/config/config';
 import { IdentificationType } from './models/identification_type';
@@ -14,8 +14,8 @@ import { PaymentBody } from './models/payment_body';
 import { Repository } from 'typeorm';
 import { Order } from 'src/orders/order.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { OrderHasProducts } from '../orders/order_has_products.entity';
-
+import { OrderStatus } from '../orders/enums/order-status.enum';
+import { InventoryService } from '../inventory/inventory.service';
 
 @Injectable()
 export class MercadoPagoService {
@@ -23,10 +23,10 @@ export class MercadoPagoService {
     constructor(
         private readonly httpService: HttpService,
         @InjectRepository(Order) private ordersRepository: Repository<Order>,
-        @InjectRepository(OrderHasProducts) private ordersHasProductsRepository: Repository<OrderHasProducts>,
+        private inventoryService: InventoryService,
     ) {}
 
-    getIdentificationTypes(): Observable<AxiosResponse<IdentificationType[]>> {
+    getIdentificationTypes() {
         return this.httpService.get(MERCADO_PAGO_API + '/identification_types', { headers: MERCADO_PAGO_HEADERS }).pipe(
             catchError((error: AxiosError) => {
                 throw new HttpException(error.response.data, error.response.status);
@@ -34,7 +34,7 @@ export class MercadoPagoService {
         ).pipe(map((resp) => resp.data));
     }
 
-    getInstallments(firstSixDigits: number, amount: number): Observable<Installment> {
+    getInstallments(firstSixDigits: number, amount: number) {
         return this.httpService.get(MERCADO_PAGO_API + `/payment_methods/installments?bin=${firstSixDigits}&amount=${amount}`, { headers: MERCADO_PAGO_HEADERS }).pipe(
             catchError((error: AxiosError) => {
                 throw new HttpException(error.response.data, error.response.status);
@@ -42,7 +42,7 @@ export class MercadoPagoService {
         ).pipe(map((resp: AxiosResponse<Installment>) => resp.data[0]));
     }
 
-    createCardToken(cardTokenBody: CardTokenBody): Observable<CardTokenResponse> {
+    createCardToken(cardTokenBody: CardTokenBody) {
         return this.httpService.post(
             MERCADO_PAGO_API + `/card_tokens?public_key=TEST-8568eec6-7fc0-48dc-b15a-d6a9278057e1`,
             cardTokenBody, 
@@ -54,31 +54,71 @@ export class MercadoPagoService {
         ).pipe(map((resp: AxiosResponse<CardTokenResponse>) => resp.data));
     }
     
-    async createPayment(paymentBody: PaymentBody): Promise<Observable<PaymentResponse>> {
-        
-        const newOrder = this.ordersRepository.create(paymentBody.order);
-        const savedOrder = await this.ordersRepository.save(newOrder);
+    async createPayment(paymentBody: PaymentBody): Promise<PaymentResponse> {
+        const order = await this.ordersRepository.findOne({
+            where: { id: paymentBody.order_id },
+            relations: ['orderHasProducts'],
+        });
 
-        for (const product of paymentBody.order.products) {
-            const ohp = new OrderHasProducts();
-            ohp.id_order = savedOrder.id;
-            ohp.id_product = product.id;
-            ohp.quantity = product.quantity;
-            await this.ordersHasProductsRepository.save(ohp);
+        if (!order) {
+            throw new HttpException('Orden no encontrada', HttpStatus.NOT_FOUND);
         }
-        
-        delete paymentBody.order;
+
+        if (order.status !== OrderStatus.PENDIENTE_PAGO) {
+            throw new HttpException('La orden no está pendiente de pago', HttpStatus.CONFLICT);
+        }
+
+        if (order.expires_at && order.expires_at < new Date()) {
+            throw new HttpException('El checkout ha expirado', HttpStatus.GONE);
+        }
+
+        const orderItems = order.orderHasProducts.map((ohp) => ({
+            id_product: ohp.id_product,
+            quantity: ohp.quantity,
+        }));
 
         const idempotencyKey = uuidv4();
+        const { order_id, ...mpPayload } = paymentBody;
 
-        return this.httpService.post(
-            MERCADO_PAGO_API + '/payments',
-            paymentBody, 
-            { headers: { ...MERCADO_PAGO_HEADERS, 'X-Idempotency-Key': idempotencyKey} }
-        ).pipe(
-            catchError((error: AxiosError) => {
-                throw new HttpException(error.response.data, error.response.status);
-            })
-        ).pipe(map((resp: AxiosResponse<PaymentResponse>) => resp.data));
+        try {
+            const response = await firstValueFrom(
+                this.httpService.post<PaymentResponse>(
+                    MERCADO_PAGO_API + '/payments',
+                    {
+                        ...mpPayload,
+                        external_reference: String(order_id),
+                    },
+                    { headers: { ...MERCADO_PAGO_HEADERS, 'X-Idempotency-Key': idempotencyKey } },
+                ).pipe(
+                    catchError((error: AxiosError) => {
+                        throw new HttpException(error.response?.data, error.response?.status ?? HttpStatus.BAD_GATEWAY);
+                    }),
+                ),
+            );
+
+            const payment = response.data;
+
+            if (payment.status === 'approved') {
+                await this.inventoryService.confirmSale(order.id, orderItems);
+                order.status = OrderStatus.PAGADO;
+                order.payment_id = String(payment.id);
+            } else if (['rejected', 'cancelled'].includes(payment.status)) {
+                await this.inventoryService.releaseReservation(order.id, orderItems);
+                order.status = OrderStatus.CANCELADO;
+                order.payment_id = payment.id ? String(payment.id) : null;
+            } else {
+                order.payment_id = payment.id ? String(payment.id) : null;
+            }
+
+            await this.ordersRepository.save(order);
+            return payment;
+        } catch (error) {
+            if (order.status === OrderStatus.PENDIENTE_PAGO) {
+                await this.inventoryService.releaseReservation(order.id, orderItems);
+                order.status = OrderStatus.CANCELADO;
+                await this.ordersRepository.save(order);
+            }
+            throw error;
+        }
     }
 }

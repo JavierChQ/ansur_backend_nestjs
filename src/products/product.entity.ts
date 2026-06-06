@@ -1,7 +1,8 @@
 
 import { OrderHasProducts } from 'src/orders/order_has_products.entity';
+import { Inventory } from '../inventory/entities/inventory.entity';
 import { Category } from '../categories/category.entity';
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, JoinTable, ManyToMany } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 
 @Entity({ name: 'products' })
@@ -40,7 +41,9 @@ export class Product {
 
     @OneToMany(() => OrderHasProducts, (ohp) => ohp.product)
     @JoinColumn({ referencedColumnName: 'id_product' })
-    orderHasProducts: OrderHasProducts[]
+    orderHasProducts: OrderHasProducts[];
 
+    @OneToOne(() => Inventory, (inventory) => inventory.product)
+    inventory: Inventory;
 
 }

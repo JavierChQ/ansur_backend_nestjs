@@ -11,12 +11,16 @@ import { AddressModule } from './address/address.module';
 import { MercadoPagoModule } from './mercado_pago/mercado_pago.module';
 import { OrdersModule } from './orders/orders.module';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
+import { InventoryModule } from './inventory/inventory.module';
+import { CartModule } from './cart/cart.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ScheduleModule.forRoot(),
     
     TypeOrmModule.forRoot ({
       type: 'mysql',
@@ -47,6 +51,8 @@ import { ConfigModule } from '@nestjs/config';
     AddressModule,
     MercadoPagoModule,
     OrdersModule,
+    InventoryModule,
+    CartModule,
   ],
   controllers: [AppController],
   providers: [AppService],

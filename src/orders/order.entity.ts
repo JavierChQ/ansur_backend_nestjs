@@ -2,7 +2,7 @@ import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColum
 import { User } from 'src/users/user.entity';
 import { Address } from '../address/address.entity';
 import { OrderHasProducts } from './order_has_products.entity';
-import { Product } from '../products/product.entity';
+import { OrderStatus } from './enums/order-status.enum';
 
 @Entity('orders')
 export class Order {
@@ -19,8 +19,14 @@ export class Order {
     @Column({ nullable: true })
     amount: number;
 
-    @Column({default: 'PAGADO'})
-    status: string;
+    @Column({ type: 'varchar', length: 20, default: OrderStatus.PENDIENTE_PAGO })
+    status: OrderStatus;
+
+    @Column({ type: 'datetime', nullable: true })
+    expires_at: Date;
+
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    payment_id: string;
 
     @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;

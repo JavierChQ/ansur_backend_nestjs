@@ -6,12 +6,14 @@ import { Product } from './product.entity';
 import { Category } from '../categories/category.entity';
 import { JwtStrategy } from '../auth/jwt/jwt.strategy';
 import { OrderHasProducts } from 'src/orders/order_has_products.entity';
-
-
+import { InventoryModule } from '../inventory/inventory.module';
 
 @Module({
-  imports: [ TypeOrmModule.forFeature([ Product, Category, OrderHasProducts ]) ],
+  imports: [
+    TypeOrmModule.forFeature([Product, Category, OrderHasProducts]),
+    InventoryModule,
+  ],
   controllers: [ProductsController],
-  providers: [ProductsService, JwtStrategy]
+  providers: [ProductsService, JwtStrategy],
 })
 export class ProductsModule {}

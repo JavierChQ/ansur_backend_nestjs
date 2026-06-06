@@ -1,5 +1,4 @@
 import { Identification } from "./card_holder";
-import { CreateOrderDto } from '../../orders/dto/create-order.dto';
 
 export interface PaymentBody {
     transaction_amount: number;
@@ -8,7 +7,7 @@ export interface PaymentBody {
     issuer_id:          string;
     payment_method_id:  string;
     payer:              Payer;
-    order: CreateOrderDto;
+    order_id:           number;
 }
 
 export interface Payer {

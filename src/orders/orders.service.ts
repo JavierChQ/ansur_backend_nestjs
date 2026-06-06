@@ -2,6 +2,7 @@ import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from './order.entity';
+import { OrderStatus } from './enums/order-status.enum';
 
 @Injectable()
 export class OrdersService {
@@ -24,7 +25,7 @@ export class OrdersService {
         if (!orderFound) {
             throw new HttpException('Orden no encontrada', HttpStatus.NOT_FOUND);
         }
-        const updatedOrder = Object.assign(orderFound, { status: 'DESPACHADO' });
+        const updatedOrder = Object.assign(orderFound, { status: OrderStatus.DESPACHADO });
         return this.ordersRepository.save(updatedOrder);
     }
 }
