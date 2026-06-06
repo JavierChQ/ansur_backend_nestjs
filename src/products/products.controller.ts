@@ -5,9 +5,11 @@ import { JwtRole } from "src/auth/jwt/jwt-role";
 import { JwtAuthGuard } from "src/auth/jwt/jwt-auth.guard";
 import { JwtRolesGuard } from "src/auth/jwt/jwt-roles.guard";
 import { FilesInterceptor } from "@nestjs/platform-express";
-import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiProtected } from "../common/decorators/api-protected.decorator";
+import { ProductPublicResponseDto } from "./dto/swagger/product-public-response.dto";
+import { CreateProductDto } from "./dto/create-product.dto";
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import {v2 as cloudinary} from 'cloudinary';
 
@@ -23,7 +25,12 @@ export class ProductsController {
 
     // @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
     // @UseGuards(JwtAuthGuard, JwtRolesGuard)
-    @Get() // http:localhost:3000/categories -> GET
+    @Get()
+    @ApiOperation({
+        summary: 'Listar productos del catálogo',
+        description: 'Incluye in_stock (disponible/agotado) sin cantidad exacta.',
+    })
+    @ApiOkResponse({ type: [ProductPublicResponseDto] })
     findAll() {
         return this.productsService.findAll();
     }
@@ -44,26 +51,51 @@ export class ProductsController {
 
     // @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
     // @UseGuards(JwtAuthGuard, JwtRolesGuard)
-    @Get(':id') // http:localhost:3000/categories -> GET
-    findById(@Param('id', ParseIntPipe) id: number) {
-        return this.productsService.findById(id);
-    }
-
-    @Get('category/:id_category') // http:localhost:3000/categories -> GET
+    @Get('category/:id_category')
+    @ApiOperation({ summary: 'Productos por categoría con in_stock' })
+    @ApiOkResponse({ type: [ProductPublicResponseDto] })
     findByCategory(@Param('id_category', ParseIntPipe) id_category: number) {
         return this.productsService.findByCategory(id_category);
     }
     
-    // @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    // @UseGuards(JwtAuthGuard, JwtRolesGuard)
-    @Get('search/:name') // http:localhost:3000/categories -> GET
+    @Get('search/:name')
+    @ApiOperation({ summary: 'Buscar productos por nombre con in_stock' })
+    @ApiOkResponse({ type: [ProductPublicResponseDto] })
     findByName(@Param('name') name: string) {
         return this.productsService.findByName(name);
     }
 
+    @Get(':id')
+    @ApiOperation({ summary: 'Detalle de producto con in_stock' })
+    @ApiOkResponse({ type: ProductPublicResponseDto })
+    findById(@Param('id', ParseIntPipe) id: number) {
+        return this.productsService.findById(id);
+    }
+
     @HasRoles(JwtRole.ADMIN)
     @UseGuards(JwtAuthGuard, JwtRolesGuard)
-    @Post() // http:localhost:3000/categories -> POST
+    @ApiProtected()
+    @Post()
+    @ApiOperation({
+        summary: 'Crear producto con imágenes e inventario inicial',
+        description: 'Opcionalmente enviar initial_stock y min_stock en el body.',
+    })
+    @ApiConsumes('multipart/form-data')
+    @ApiBody({
+        schema: {
+            type: 'object',
+            required: ['name', 'description', 'price', 'id_category', 'files[]'],
+            properties: {
+                name: { type: 'string', example: 'Remera XL' },
+                description: { type: 'string', example: 'Descripción' },
+                price: { type: 'number', example: 49.9 },
+                id_category: { type: 'integer', example: 3 },
+                initial_stock: { type: 'integer', example: 50, description: 'Stock inicial' },
+                min_stock: { type: 'integer', example: 10, description: 'Umbral de alerta admin' },
+                'files[]': { type: 'array', items: { type: 'string', format: 'binary' } },
+            },
+        },
+    })
     @UseInterceptors(FilesInterceptor('files[]', 2, {storage}))
     create(
         @UploadedFiles(

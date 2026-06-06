@@ -27,11 +27,31 @@ async function bootstrap() {
   const rolesService = app.get(RolesService);
   await rolesService.seedDefaultRoles();
 
-  // Configuración para la documentacion swagger
   const config = new DocumentBuilder()
-  .setTitle("Ansur backend")
-  .setDescription("Descripcion de las APIs")
-  .setVersion("1.0")
+  .setTitle('Ansur backend')
+  .setDescription(
+    'API del e-commerce Ansur.\n\n' +
+    '## Flujo de compra\n' +
+    '1. **GET /products** — catálogo con `in_stock` (disponible/agotado)\n' +
+    '2. **POST /cart/items** — añadir al carrito (valida stock, no reserva)\n' +
+    '3. **POST /orders/checkout** — crea orden `PENDIENTE_PAGO` y reserva stock (15 min)\n' +
+    '4. **POST /mercadopago/payments** — paga con `order_id` del checkout\n\n' +
+    '## Panel admin (rol ADMIN)\n' +
+    '- **GET /admin/inventory** — inventario y alertas\n' +
+    '- **POST /admin/inventory/:id/restock** — ingreso de mercadería\n' +
+    '- **GET /admin/dashboard/stock-summary** — KPIs de stock\n\n' +
+    'Autenticación: `Authorization: Bearer <token>` obtenido en POST /auth/login',
+  )
+  .setVersion('1.1')
+  .addBearerAuth(
+    { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
+    'JWT',
+  )
+  .addTag('products', 'Catálogo público')
+  .addTag('cart', 'Carrito del cliente (1 por usuario, TTL 7 días)')
+  .addTag('orders', 'Órdenes y checkout')
+  .addTag('mercadopago', 'Pagos con Mercado Pago')
+  .addTag('admin-inventory', 'Gestión de inventario (solo ADMIN)')
   .build();
   // crea el documento swagger
   const document = SwaggerModule.createDocument(app, config);
