@@ -15,6 +15,9 @@ export class CartItemResponseDto {
 
   @ApiProperty({ example: true })
   in_stock: boolean;
+
+  @ApiProperty({ example: 12, description: 'Unidades disponibles en inventario' })
+  available: number;
 }
 
 export class CartResponseDto {

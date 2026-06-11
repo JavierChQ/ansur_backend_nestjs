@@ -10,6 +10,7 @@ export interface ProductRequestUser {
 
 export interface ProductWithStock extends Product {
   in_stock?: boolean;
+  available?: number;
 }
 
 export function isAdminUser(user?: ProductRequestUser | null): boolean {
@@ -37,6 +38,7 @@ export function toPublicProductResponse(product: ProductWithStock) {
     id_category: product.id_category,
     sales_price: toNumber(product.sale_price),
     in_stock: product.in_stock ?? false,
+    available: product.available ?? 0,
   };
 }
 
@@ -55,6 +57,7 @@ export function toAdminProductResponse(product: ProductWithStock) {
     purchase_price: purchasePrice,
     sale_price: salePrice,
     in_stock: product.in_stock ?? false,
+    available: product.available ?? 0,
     ...(priceWarning && { price_warning: priceWarning }),
   };
 }

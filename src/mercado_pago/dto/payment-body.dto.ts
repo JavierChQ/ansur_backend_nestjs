@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEmail, IsInt, IsNotEmpty, IsString, Min, ValidateNested } from 'class-validator';
+import { IsEmail, IsInt, IsNotEmpty, IsNumber, IsString, Min, ValidateNested } from 'class-validator';
 
 class IdentificationDto {
   @ApiProperty({ example: 'DNI' })
@@ -27,8 +27,8 @@ class PayerDto {
 
 export class PaymentBodyDto {
   @ApiProperty({ example: 99.8, description: 'Monto total de la orden' })
-  @IsInt()
-  @Min(1)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
   transaction_amount: number;
 
   @ApiProperty({ description: 'Token de tarjeta generado por Mercado Pago' })

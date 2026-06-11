@@ -24,7 +24,13 @@ export class ProductPublicResponseDto {
 
   @ApiProperty({
     example: true,
-    description: 'Indica si hay unidades disponibles (sin mostrar cantidad exacta)',
+    description: 'Indica si hay unidades disponibles',
   })
   in_stock: boolean;
+
+  @ApiProperty({
+    example: 12,
+    description: 'Unidades disponibles para compra (quantity - reserved)',
+  })
+  available: number;
 }

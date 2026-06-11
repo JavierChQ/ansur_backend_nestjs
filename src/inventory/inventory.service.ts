@@ -99,7 +99,18 @@ export class InventoryService implements OnModuleInit {
   async getAvailabilityMap(
     productIds: number[],
   ): Promise<Map<number, boolean>> {
+    const availableMap = await this.getAvailableMap(productIds);
     const map = new Map<number, boolean>();
+    for (const id of productIds) {
+      map.set(id, (availableMap.get(id) ?? 0) > 0);
+    }
+    return map;
+  }
+
+  async getAvailableMap(
+    productIds: number[],
+  ): Promise<Map<number, number>> {
+    const map = new Map<number, number>();
     if (productIds.length === 0) return map;
 
     const inventories = await this.inventoryRepository
@@ -108,10 +119,10 @@ export class InventoryService implements OnModuleInit {
       .getMany();
 
     for (const id of productIds) {
-      map.set(id, false);
+      map.set(id, 0);
     }
     for (const inv of inventories) {
-      map.set(inv.id_product, inv.quantity - inv.reserved > 0);
+      map.set(inv.id_product, inv.quantity - inv.reserved);
     }
     return map;
   }

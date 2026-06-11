@@ -155,13 +155,22 @@ export class CartService {
   }
 
   private async mapCart(cart: Cart) {
-    const items = (cart.items ?? []).map((item) => ({
-      id_product: item.id_product,
-      name: item.product?.name,
-      sales_price: Number(item.product?.sale_price ?? 0),
-      quantity: item.quantity,
-      in_stock: true,
-    }));
+    const rawItems = cart.items ?? [];
+    const availableMap = await this.inventoryService.getAvailableMap(
+      rawItems.map((item) => item.id_product),
+    );
+
+    const items = rawItems.map((item) => {
+      const available = availableMap.get(item.id_product) ?? 0;
+      return {
+        id_product: item.id_product,
+        name: item.product?.name,
+        sales_price: Number(item.product?.sale_price ?? 0),
+        quantity: item.quantity,
+        available,
+        in_stock: available >= item.quantity,
+      };
+    });
 
     const total = items.reduce(
       (sum, item) => sum + (item.sales_price ?? 0) * item.quantity,

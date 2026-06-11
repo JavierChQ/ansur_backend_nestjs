@@ -31,6 +31,9 @@ export class ProductAdminResponseDto {
   })
   in_stock: boolean;
 
+  @ApiProperty({ example: 12, description: 'Unidades disponibles para compra' })
+  available: number;
+
   @ApiPropertyOptional({
     example: 'El precio de venta es menor al precio de compra',
     description: 'Advertencia cuando sale_price < purchase_price',

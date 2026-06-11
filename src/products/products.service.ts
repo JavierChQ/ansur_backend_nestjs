@@ -67,11 +67,15 @@ export class ProductsService {
 
     private async attachStockStatus(products: Product[]) {
         const ids = products.map((p) => p.id);
-        const availability = await this.inventoryService.getAvailabilityMap(ids);
-        return products.map((product) => ({
-            ...product,
-            in_stock: availability.get(product.id) ?? false,
-        }));
+        const availableMap = await this.inventoryService.getAvailableMap(ids);
+        return products.map((product) => {
+            const available = availableMap.get(product.id) ?? 0;
+            return {
+                ...product,
+                available,
+                in_stock: available > 0,
+            };
+        });
     }
 
     async create(files: Array<Express.Multer.File>, product: CreateProductDto) {
