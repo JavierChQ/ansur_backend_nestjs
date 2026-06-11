@@ -1,4 +1,4 @@
-import { Controller, UseGuards, Param, Body, ParseIntPipe, Post, Get } from '@nestjs/common';
+import { Controller, UseGuards, Param, Body, ParseIntPipe, Post, Get, Query, Headers, HttpCode, HttpStatus } from '@nestjs/common';
 import {
   ApiConflictResponse,
   ApiGoneResponse,
@@ -7,6 +7,7 @@ import {
   ApiOperation,
   ApiParam,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { HasRoles } from '../auth/jwt/has-roles';
 import { JwtRole } from '../auth/jwt/jwt-role';
@@ -16,14 +17,15 @@ import { ApiProtected } from '../common/decorators/api-protected.decorator';
 import { MercadoPagoService } from './mercado_pago.service';
 import { CardTokenBody } from '../mercado_pago/models/card_token_body';
 import { PaymentBodyDto } from './dto/payment-body.dto';
+import { MercadoPagoWebhookDto } from './dto/mercado-pago-webhook.dto';
 
 @ApiTags('mercadopago')
-@ApiProtected()
 @Controller('mercadopago')
 export class MercadoPagoController {
 
     constructor(private mercadoPagoService: MercadoPagoService) {}
 
+    @ApiProtected()
     @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
     @UseGuards(JwtAuthGuard, JwtRolesGuard)
     @Get('identification_types')
@@ -32,6 +34,7 @@ export class MercadoPagoController {
         return this.mercadoPagoService.getIdentificationTypes();
     }
     
+    @ApiProtected()
     @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
     @UseGuards(JwtAuthGuard, JwtRolesGuard)
     @Get('installments/:first_six_digits/:amount')
@@ -45,6 +48,7 @@ export class MercadoPagoController {
         return this.mercadoPagoService.getInstallments(firstSixDigits, amount);
     }
     
+    @ApiProtected()
     @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
     @UseGuards(JwtAuthGuard, JwtRolesGuard)
     @Post('card_token')
@@ -53,6 +57,7 @@ export class MercadoPagoController {
         return this.mercadoPagoService.createCardToken(cardTokenBody);
     }
     
+    @ApiProtected()
     @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
     @UseGuards(JwtAuthGuard, JwtRolesGuard)
     @Post('payments')
@@ -69,5 +74,24 @@ export class MercadoPagoController {
     @ApiGoneResponse({ description: 'El checkout expiró (15 min)' })
     createPayment(@Body() paymentBody: PaymentBodyDto) {
         return this.mercadoPagoService.createPayment(paymentBody);
+    }
+
+    @Post('webhooks')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({
+        summary: 'Webhook de Mercado Pago',
+        description:
+            'Recibe notificaciones de pago (topic payment). Consulta el pago en MP y actualiza la orden. ' +
+            'Configurar URL en el panel de Mercado Pago → Webhooks. ' +
+            'Valida firma con MERCADOPAGO_WEBHOOK_SECRET.',
+    })
+    @ApiOkResponse({ description: 'Notificación recibida' })
+    @ApiUnauthorizedResponse({ description: 'Firma de webhook inválida' })
+    handleWebhook(
+        @Body() body: MercadoPagoWebhookDto,
+        @Query() query: Record<string, string | undefined>,
+        @Headers() headers: Record<string, string | undefined>,
+    ) {
+        return this.mercadoPagoService.handlePaymentWebhook(body, query, headers);
     }
 }

@@ -12,14 +12,17 @@ import { MercadoPagoModule } from './mercado_pago/mercado_pago.module';
 import { OrdersModule } from './orders/orders.module';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { InventoryModule } from './inventory/inventory.module';
 import { CartModule } from './cart/cart.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     
     TypeOrmModule.forRoot ({
@@ -53,6 +56,7 @@ import { CartModule } from './cart/cart.module';
     OrdersModule,
     InventoryModule,
     CartModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [AppService],

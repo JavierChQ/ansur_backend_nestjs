@@ -46,6 +46,7 @@ export class CheckoutService {
           id_order: savedOrder.id,
           id_product: item.id_product,
           quantity: item.quantity,
+          unit_price: item.product.sale_price,
         }),
       );
       await manager.save(orderItems);

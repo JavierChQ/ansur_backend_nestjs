@@ -28,6 +28,9 @@ export class Order {
     @Column({ type: 'varchar', length: 100, nullable: true })
     payment_id: string;
 
+    @Column({ type: 'datetime', nullable: true })
+    receipt_sent_at: Date;
+
     @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
     

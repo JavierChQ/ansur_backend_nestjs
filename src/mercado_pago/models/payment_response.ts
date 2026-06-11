@@ -37,7 +37,7 @@ export interface PaymentResponse {
     metadata:                    Metadata;
     additional_info:             AdditionalInfo;
     order:                       Metadata;
-    external_reference:          null;
+    external_reference:          string | null;
     transaction_amount:          number;
     net_amount:                  number;
     taxes:                       Tax[];

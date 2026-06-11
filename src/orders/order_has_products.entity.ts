@@ -13,6 +13,9 @@ export class OrderHasProducts {
     @Column()
     quantity: number;
 
+    @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+    unit_price: number;
+
     @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
     

@@ -39,7 +39,8 @@ async function bootstrap() {
     '1. **GET /products** — catálogo con `in_stock` (disponible/agotado)\n' +
     '2. **POST /cart/items** — añadir al carrito (valida stock, no reserva)\n' +
     '3. **POST /orders/checkout** — crea orden `PENDIENTE_PAGO` y reserva stock (15 min)\n' +
-    '4. **POST /mercadopago/payments** — paga con `order_id` del checkout\n\n' +
+    '4. **POST /mercadopago/payments** — paga con `order_id` del checkout\n' +
+    '5. **POST /mercadopago/webhooks** — notificaciones async de Mercado Pago (pagos pending → approved)\n\n' +
     '## Panel admin (rol ADMIN)\n' +
     '- **GET /admin/inventory** — inventario y alertas\n' +
     '- **POST /admin/inventory/:id/restock** — ingreso de mercadería\n' +
