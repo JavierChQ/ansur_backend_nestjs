@@ -6,7 +6,6 @@ import { catchError, firstValueFrom, map } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MERCADO_PAGO_API } from 'src/config/config';
-import { MERCADO_PAGO_HEADERS } from '../config/config';
 import { Installment } from './models/installment';
 import { CardTokenBody } from './models/card_token_body';
 import { CardTokenResponse } from './models/card_token_response';
@@ -40,7 +39,7 @@ export class MercadoPagoService {
 
   getIdentificationTypes() {
     return this.httpService
-      .get(MERCADO_PAGO_API + '/identification_types', { headers: MERCADO_PAGO_HEADERS })
+      .get(MERCADO_PAGO_API + '/identification_types', { headers: this.getMercadoPagoHeaders() })
       .pipe(
         catchError((error: AxiosError) => {
           throw new HttpException(error.response.data, error.response.status);
@@ -54,7 +53,7 @@ export class MercadoPagoService {
       .get(
         MERCADO_PAGO_API +
           `/payment_methods/installments?bin=${firstSixDigits}&amount=${amount}`,
-        { headers: MERCADO_PAGO_HEADERS },
+        { headers: this.getMercadoPagoHeaders() },
       )
       .pipe(
         catchError((error: AxiosError) => {
@@ -67,9 +66,9 @@ export class MercadoPagoService {
   createCardToken(cardTokenBody: CardTokenBody) {
     return this.httpService
       .post(
-        MERCADO_PAGO_API + `/card_tokens?public_key=TEST-8568eec6-7fc0-48dc-b15a-d6a9278057e1`,
+        `${MERCADO_PAGO_API}/card_tokens?public_key=${this.getPublicKey()}`,
         cardTokenBody,
-        { headers: MERCADO_PAGO_HEADERS },
+        { headers: this.getMercadoPagoHeaders() },
       )
       .pipe(
         catchError((error: AxiosError) => {
@@ -110,7 +109,11 @@ export class MercadoPagoService {
               ...mpPayload,
               external_reference: String(order_id),
             },
-            { headers: { ...MERCADO_PAGO_HEADERS, 'X-Idempotency-Key': idempotencyKey } },
+            {
+              headers: this.getMercadoPagoHeaders({
+                'X-Idempotency-Key': idempotencyKey,
+              }),
+            },
           )
           .pipe(
             catchError((error: AxiosError) => {
@@ -197,7 +200,7 @@ export class MercadoPagoService {
     const response = await firstValueFrom(
       this.httpService
         .get<PaymentResponse>(`${MERCADO_PAGO_API}/payments/${paymentId}`, {
-          headers: MERCADO_PAGO_HEADERS,
+          headers: this.getMercadoPagoHeaders(),
         })
         .pipe(
           catchError((error: AxiosError) => {
@@ -210,6 +213,38 @@ export class MercadoPagoService {
     );
 
     return response.data;
+  }
+
+  private getAccessToken(): string {
+    const token = this.configService.get<string>('MERCADOPAGO_ACCESS_TOKEN');
+    if (!token) {
+      throw new HttpException(
+        'MERCADOPAGO_ACCESS_TOKEN no configurada',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return token;
+  }
+
+  private getPublicKey(): string {
+    const publicKey = this.configService.get<string>('MERCADOPAGO_PUBLIC_KEY');
+    if (!publicKey) {
+      throw new HttpException(
+        'MERCADOPAGO_PUBLIC_KEY no configurada',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return publicKey;
+  }
+
+  private getMercadoPagoHeaders(
+    extra: Record<string, string> = {},
+  ): Record<string, string> {
+    return {
+      Authorization: `Bearer ${this.getAccessToken()}`,
+      'Content-Type': 'application/json',
+      ...extra,
+    };
   }
 
   private parseOrderIdFromPayment(payment: PaymentResponse): number | null {
