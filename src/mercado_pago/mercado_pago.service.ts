@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios/dist';
-import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosResponse, AxiosError } from 'axios';
 import { catchError, firstValueFrom, map } from 'rxjs';
@@ -26,7 +26,7 @@ interface OrderItemInput {
 }
 
 @Injectable()
-export class MercadoPagoService {
+export class MercadoPagoService implements OnModuleInit {
   private readonly logger = new Logger(MercadoPagoService.name);
 
   constructor(
@@ -36,6 +36,39 @@ export class MercadoPagoService {
     private eventEmitter: EventEmitter2,
     private configService: ConfigService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    this.assertMatchingCredentialEnvironments();
+
+    try {
+      await firstValueFrom(
+        this.httpService
+          .get(MERCADO_PAGO_API + '/payment_methods', {
+            headers: this.getMercadoPagoHeaders(),
+          })
+          .pipe(
+            catchError((error: AxiosError) => {
+              throw error;
+            }),
+          ),
+      );
+      this.logger.log('Credenciales de Mercado Pago verificadas correctamente');
+    } catch {
+      this.logger.error(
+        'MERCADOPAGO_ACCESS_TOKEN inválida o expirada. ' +
+          'Copiá Public Key y Access Token juntos desde el panel de MP ' +
+          '(Tus integraciones → Credenciales de prueba) y reiniciá el backend.',
+      );
+    }
+  }
+
+  getPublicConfig() {
+    return {
+      public_key: this.getPublicKey(),
+      site_id: 'MPE',
+      locale: 'es-PE',
+    };
+  }
 
   getIdentificationTypes() {
     return this.httpService
@@ -96,45 +129,32 @@ export class MercadoPagoService {
       throw new HttpException('El checkout ha expirado', HttpStatus.GONE);
     }
 
-    const orderItems = this.mapOrderItems(order);
+    this.assertValidPaymentPayload(paymentBody, order);
+
     const idempotencyKey = uuidv4();
-    const { order_id, ...mpPayload } = paymentBody;
-
-    try {
-      const response = await firstValueFrom(
-        this.httpService
-          .post<PaymentResponse>(
-            MERCADO_PAGO_API + '/payments',
-            {
-              ...mpPayload,
-              external_reference: String(order_id),
-            },
-            {
-              headers: this.getMercadoPagoHeaders({
-                'X-Idempotency-Key': idempotencyKey,
-              }),
-            },
-          )
-          .pipe(
-            catchError((error: AxiosError) => {
-              throw new HttpException(
-                error.response?.data,
-                error.response?.status ?? HttpStatus.BAD_GATEWAY,
-              );
+    const response = await firstValueFrom(
+      this.httpService
+        .post<PaymentResponse>(
+          MERCADO_PAGO_API + '/payments',
+          this.buildMercadoPagoPaymentPayload(paymentBody),
+          {
+            headers: this.getMercadoPagoHeaders({
+              'X-Idempotency-Key': idempotencyKey,
             }),
-          ),
-      );
+          },
+        )
+        .pipe(
+          catchError((error: AxiosError) => {
+            throw new HttpException(
+              this.formatMercadoPagoApiError(error.response?.data),
+              error.response?.status ?? HttpStatus.BAD_GATEWAY,
+            );
+          }),
+        ),
+    );
 
-      await this.applyPaymentStatusToOrder(order, response.data);
-      return response.data;
-    } catch (error) {
-      if (order.status === OrderStatus.PENDIENTE_PAGO) {
-        await this.inventoryService.releaseReservation(order.id, orderItems);
-        order.status = OrderStatus.CANCELADO;
-        await this.ordersRepository.save(order);
-      }
-      throw error;
-    }
+    await this.applyPaymentStatusToOrder(order, response.data);
+    return response.data;
   }
 
   async handlePaymentWebhook(
@@ -215,8 +235,88 @@ export class MercadoPagoService {
     return response.data;
   }
 
+  private buildMercadoPagoPaymentPayload(paymentBody: PaymentBody) {
+    const payer: PaymentBody['payer'] = { email: paymentBody.payer.email };
+
+    if (paymentBody.payer.identification) {
+      payer.identification = paymentBody.payer.identification;
+    }
+
+    const payload: Record<string, unknown> = {
+      transaction_amount: paymentBody.transaction_amount,
+      token: paymentBody.token,
+      installments: paymentBody.installments,
+      payment_method_id: paymentBody.payment_method_id,
+      payer,
+      external_reference: String(paymentBody.order_id),
+    };
+
+    if (paymentBody.issuer_id) {
+      payload.issuer_id = paymentBody.issuer_id;
+    }
+
+    return payload;
+  }
+
+  private assertValidPaymentPayload(
+    paymentBody: PaymentBody,
+    order: Order,
+  ): void {
+    const orderAmount = Number(order.amount);
+    const paymentAmount = Number(paymentBody.transaction_amount);
+
+    if (Math.abs(orderAmount - paymentAmount) > 0.01) {
+      throw new HttpException(
+        'El monto del pago no coincide con la orden',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (paymentBody.payment_method_id !== 'yape' && !paymentBody.issuer_id) {
+      throw new HttpException(
+        'issuer_id es requerido para pagos con tarjeta',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (
+      paymentBody.payment_method_id !== 'yape' &&
+      !paymentBody.payer.identification?.type
+    ) {
+      throw new HttpException(
+        'La identificación del pagador es requerida para pagos con tarjeta',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  private formatMercadoPagoApiError(data: unknown): string {
+    if (!data || typeof data !== 'object') {
+      return 'Error al procesar el pago en Mercado Pago';
+    }
+
+    const body = data as Record<string, unknown>;
+    const causes = body.cause;
+
+    if (Array.isArray(causes) && causes.length > 0) {
+      const first = causes[0] as Record<string, unknown>;
+      if (typeof first.description === 'string' && first.description.trim()) {
+        return first.description;
+      }
+      if (typeof first.code === 'string' && first.code.trim()) {
+        return first.code;
+      }
+    }
+
+    if (typeof body.message === 'string' && body.message.trim()) {
+      return body.message;
+    }
+
+    return 'Error al procesar el pago en Mercado Pago';
+  }
+
   private getAccessToken(): string {
-    const token = this.configService.get<string>('MERCADOPAGO_ACCESS_TOKEN');
+    const token = this.configService.get<string>('MERCADOPAGO_ACCESS_TOKEN')?.trim();
     if (!token) {
       throw new HttpException(
         'MERCADOPAGO_ACCESS_TOKEN no configurada',
@@ -227,7 +327,7 @@ export class MercadoPagoService {
   }
 
   private getPublicKey(): string {
-    const publicKey = this.configService.get<string>('MERCADOPAGO_PUBLIC_KEY');
+    const publicKey = this.configService.get<string>('MERCADOPAGO_PUBLIC_KEY')?.trim();
     if (!publicKey) {
       throw new HttpException(
         'MERCADOPAGO_PUBLIC_KEY no configurada',
@@ -235,6 +335,21 @@ export class MercadoPagoService {
       );
     }
     return publicKey;
+  }
+
+  private assertMatchingCredentialEnvironments(): void {
+    const accessToken = this.getAccessToken();
+    const publicKey = this.getPublicKey();
+    const accessIsTest = accessToken.startsWith('TEST-');
+    const publicIsTest = publicKey.startsWith('TEST-');
+
+    if (accessIsTest !== publicIsTest) {
+      this.logger.error(
+        'Las credenciales de Mercado Pago no coinciden: ' +
+          'MERCADOPAGO_ACCESS_TOKEN y MERCADOPAGO_PUBLIC_KEY deben ser ambas TEST- (prueba) ' +
+          'o ambas APP_USR- (producción), de la misma aplicación.',
+      );
+    }
   }
 
   private getMercadoPagoHeaders(

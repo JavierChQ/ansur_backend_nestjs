@@ -18,12 +18,23 @@ import { MercadoPagoService } from './mercado_pago.service';
 import { CardTokenBody } from '../mercado_pago/models/card_token_body';
 import { PaymentBodyDto } from './dto/payment-body.dto';
 import { MercadoPagoWebhookDto } from './dto/mercado-pago-webhook.dto';
+import { MercadoPagoConfigDto } from './dto/mercado-pago-config.dto';
 
 @ApiTags('mercadopago')
 @Controller('mercadopago')
 export class MercadoPagoController {
 
     constructor(private mercadoPagoService: MercadoPagoService) {}
+
+    @Get('config')
+    @ApiOperation({
+        summary: 'Configuración pública para el SDK de Mercado Pago',
+        description: 'Expone la public_key para inicializar CardForm y Yape en el frontend.',
+    })
+    @ApiOkResponse({ type: MercadoPagoConfigDto })
+    getConfig() {
+        return this.mercadoPagoService.getPublicConfig();
+    }
 
     @ApiProtected()
     @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
