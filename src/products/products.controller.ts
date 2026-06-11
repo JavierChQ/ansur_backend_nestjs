@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseFilePipe, ParseIntPipe, Post, Put, UploadedFiles, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseFilePipe, ParseIntPipe, Post, Put, Req, UploadedFiles, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ProductsService } from "./products.service";
 import { HasRoles } from "src/auth/jwt/has-roles";
 import { JwtRole } from "src/auth/jwt/jwt-role";
@@ -9,6 +9,9 @@ import { UpdateProductDto } from "./dto/update-product.dto";
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ApiProtected } from "../common/decorators/api-protected.decorator";
 import { ProductPublicResponseDto } from "./dto/swagger/product-public-response.dto";
+import { ProductAdminResponseDto } from "./dto/swagger/product-admin-response.dto";
+import { OptionalJwtAuthGuard } from "../auth/jwt/optional-jwt-auth.guard";
+import { ProductRequestUser } from "./product-response.mapper";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import {v2 as cloudinary} from 'cloudinary';
@@ -24,16 +27,23 @@ export class ProductsController {
 
     constructor(private productsService: ProductsService) {}
 
-    // @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    // @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @UseGuards(OptionalJwtAuthGuard)
     @Get()
     @ApiOperation({
         summary: 'Listar productos del catálogo',
-        description: 'Incluye in_stock (disponible/agotado) sin cantidad exacta.',
+        description:
+            'Público: sales_price e in_stock. Con JWT ADMIN: purchase_price, sale_price y price_warning si aplica.',
     })
-    @ApiOkResponse({ type: [ProductPublicResponseDto] })
-    findAll() {
-        return this.productsService.findAll();
+    @ApiOkResponse({
+        schema: {
+            oneOf: [
+                { type: 'array', items: { $ref: '#/components/schemas/ProductPublicResponseDto' } },
+                { type: 'array', items: { $ref: '#/components/schemas/ProductAdminResponseDto' } },
+            ],
+        },
+    })
+    findAll(@Req() req: { user?: ProductRequestUser | null }) {
+        return this.productsService.findAll(req.user);
     }
 
     // @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
@@ -52,25 +62,58 @@ export class ProductsController {
 
     // @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
     // @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @UseGuards(OptionalJwtAuthGuard)
     @Get('category/:id_category')
     @ApiOperation({ summary: 'Productos por categoría con in_stock' })
-    @ApiOkResponse({ type: [ProductPublicResponseDto] })
-    findByCategory(@Param('id_category', ParseIntPipe) id_category: number) {
-        return this.productsService.findByCategory(id_category);
+    @ApiOkResponse({
+        schema: {
+            oneOf: [
+                { type: 'array', items: { $ref: '#/components/schemas/ProductPublicResponseDto' } },
+                { type: 'array', items: { $ref: '#/components/schemas/ProductAdminResponseDto' } },
+            ],
+        },
+    })
+    findByCategory(
+        @Param('id_category', ParseIntPipe) id_category: number,
+        @Req() req: { user?: ProductRequestUser | null },
+    ) {
+        return this.productsService.findByCategory(id_category, req.user);
     }
     
+    @UseGuards(OptionalJwtAuthGuard)
     @Get('search/:name')
     @ApiOperation({ summary: 'Buscar productos por nombre con in_stock' })
-    @ApiOkResponse({ type: [ProductPublicResponseDto] })
-    findByName(@Param('name') name: string) {
-        return this.productsService.findByName(name);
+    @ApiOkResponse({
+        schema: {
+            oneOf: [
+                { type: 'array', items: { $ref: '#/components/schemas/ProductPublicResponseDto' } },
+                { type: 'array', items: { $ref: '#/components/schemas/ProductAdminResponseDto' } },
+            ],
+        },
+    })
+    findByName(
+        @Param('name') name: string,
+        @Req() req: { user?: ProductRequestUser | null },
+    ) {
+        return this.productsService.findByName(name, req.user);
     }
 
+    @UseGuards(OptionalJwtAuthGuard)
     @Get(':id')
     @ApiOperation({ summary: 'Detalle de producto con in_stock' })
-    @ApiOkResponse({ type: ProductPublicResponseDto })
-    findById(@Param('id', ParseIntPipe) id: number) {
-        return this.productsService.findById(id);
+    @ApiOkResponse({
+        schema: {
+            oneOf: [
+                { $ref: '#/components/schemas/ProductPublicResponseDto' },
+                { $ref: '#/components/schemas/ProductAdminResponseDto' },
+            ],
+        },
+    })
+    findById(
+        @Param('id', ParseIntPipe) id: number,
+        @Req() req: { user?: ProductRequestUser | null },
+    ) {
+        return this.productsService.findById(id, req.user);
     }
 
     @HasRoles(JwtRole.ADMIN)
@@ -85,11 +128,12 @@ export class ProductsController {
     @ApiBody({
         schema: {
             type: 'object',
-            required: ['name', 'description', 'price', 'id_category', 'files[]'],
+            required: ['name', 'description', 'purchase_price', 'sale_price', 'id_category', 'files[]'],
             properties: {
                 name: { type: 'string', example: 'Remera XL' },
                 description: { type: 'string', example: 'Descripción' },
-                price: { type: 'number', example: 49.9 },
+                purchase_price: { type: 'number', example: 25 },
+                sale_price: { type: 'number', example: 49.9 },
                 id_category: { type: 'integer', example: 3 },
                 initial_stock: { type: 'integer', example: 50, description: 'Stock inicial' },
                 min_stock: { type: 'integer', example: 10, description: 'Umbral de alerta admin' },
@@ -97,6 +141,7 @@ export class ProductsController {
             },
         },
     })
+    @ApiOkResponse({ type: ProductAdminResponseDto })
     @UseInterceptors(FilesInterceptor('files[]', 2, {storage}))
     create(
         @UploadedFiles(

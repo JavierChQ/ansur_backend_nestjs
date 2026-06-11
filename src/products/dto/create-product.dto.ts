@@ -12,11 +12,17 @@ export class CreateProductDto {
     @IsString()
     description: string;
 
-    @ApiProperty({ example: 49.9 })
+    @ApiProperty({ example: 25, description: 'Precio de compra / costo' })
     @Type(() => Number)
     @IsNumber()
     @Min(0)
-    price: number;
+    purchase_price: number;
+
+    @ApiProperty({ example: 49.9, description: 'Precio de venta al público' })
+    @Type(() => Number)
+    @IsNumber()
+    @Min(0)
+    sale_price: number;
 
     @ApiProperty({ example: 3 })
     @Type(() => Number)

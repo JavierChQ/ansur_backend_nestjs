@@ -1,0 +1,76 @@
+import { JwtRole } from '../auth/jwt/jwt-role';
+import { Product } from './product.entity';
+
+export const PRICE_BELOW_COST_WARNING =
+  'El precio de venta es menor al precio de compra';
+
+export interface ProductRequestUser {
+  roles?: string[];
+}
+
+export interface ProductWithStock extends Product {
+  in_stock?: boolean;
+}
+
+export function isAdminUser(user?: ProductRequestUser | null): boolean {
+  return user?.roles?.includes(JwtRole.ADMIN) ?? false;
+}
+
+function toNumber(value: number | string): number {
+  return Number(value);
+}
+
+export function buildPriceWarning(
+  salePrice: number,
+  purchasePrice: number,
+): string | undefined {
+  return salePrice < purchasePrice ? PRICE_BELOW_COST_WARNING : undefined;
+}
+
+export function toPublicProductResponse(product: ProductWithStock) {
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    image1: product.image1,
+    image2: product.image2,
+    id_category: product.id_category,
+    sales_price: toNumber(product.sale_price),
+    in_stock: product.in_stock ?? false,
+  };
+}
+
+export function toAdminProductResponse(product: ProductWithStock) {
+  const purchasePrice = toNumber(product.purchase_price);
+  const salePrice = toNumber(product.sale_price);
+  const priceWarning = buildPriceWarning(salePrice, purchasePrice);
+
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    image1: product.image1,
+    image2: product.image2,
+    id_category: product.id_category,
+    purchase_price: purchasePrice,
+    sale_price: salePrice,
+    in_stock: product.in_stock ?? false,
+    ...(priceWarning && { price_warning: priceWarning }),
+  };
+}
+
+export function mapProductResponse(
+  product: ProductWithStock,
+  isAdmin: boolean,
+) {
+  return isAdmin
+    ? toAdminProductResponse(product)
+    : toPublicProductResponse(product);
+}
+
+export function mapProductsResponse(
+  products: ProductWithStock[],
+  isAdmin: boolean,
+) {
+  return products.map((product) => mapProductResponse(product, isAdmin));
+}

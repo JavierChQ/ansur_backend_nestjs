@@ -12,6 +12,13 @@ import { OrderHasProducts } from '../orders/order_has_products.entity';
 import { CartItem } from '../cart/entities/cart-item.entity';
 import { Inventory } from '../inventory/entities/inventory.entity';
 import { StockMovement } from '../inventory/entities/stock-movement.entity';
+import {
+    isAdminUser,
+    mapProductResponse,
+    mapProductsResponse,
+    ProductRequestUser,
+    toAdminProductResponse,
+} from './product-response.mapper';
 
 @Injectable()
 export class ProductsService {
@@ -33,26 +40,29 @@ export class ProductsService {
         configureCloudinary(this.configService);
     }
 
-    async findAll() {
+    async findAll(user?: ProductRequestUser | null) {
         const products = await this.productsRepository.find();
-        return this.attachStockStatus(products);
+        const withStock = await this.attachStockStatus(products);
+        return mapProductsResponse(withStock, isAdminUser(user));
     }
     
-    async findByCategory(id_category: number) {
+    async findByCategory(id_category: number, user?: ProductRequestUser | null) {
         const products = await this.productsRepository.findBy({ id_category });
-        return this.attachStockStatus(products);
+        const withStock = await this.attachStockStatus(products);
+        return mapProductsResponse(withStock, isAdminUser(user));
     }
 
-    async findById(id: number) {
+    async findById(id: number, user?: ProductRequestUser | null) {
         const product = await this.productsRepository.findOneBy({ id });
         if (!product) return null;
         const [mapped] = await this.attachStockStatus([product]);
-        return mapped;
+        return mapProductResponse(mapped, isAdminUser(user));
     }
 
-    async findByName(name: string) {
+    async findByName(name: string, user?: ProductRequestUser | null) {
         const products = await this.productsRepository.find({ where: { name: Like(`%${name}%`) } });
-        return this.attachStockStatus(products);
+        const withStock = await this.attachStockStatus(products);
+        return mapProductsResponse(withStock, isAdminUser(user));
     }
 
     private async attachStockStatus(products: Product[]) {
@@ -86,7 +96,10 @@ export class ProductsService {
             'Stock inicial',
         );
 
-        return savedProduct;
+        return toAdminProductResponse({
+            ...savedProduct,
+            in_stock: initial_stock > 0,
+        });
     }
     
     async updateWithImages(files: Array<Express.Multer.File>, id: number, product: UpdateProductDto) {
@@ -110,7 +123,9 @@ export class ProductsService {
             }
         });
 
-        return this.productsRepository.save(updatedProduct);
+        const saved = await this.productsRepository.save(updatedProduct);
+        const [withStock] = await this.attachStockStatus([saved]);
+        return toAdminProductResponse(withStock);
     }
 
     async update(id: number, product: UpdateProductDto)  {   
@@ -122,7 +137,9 @@ export class ProductsService {
         }
 
         const updatedProduct = Object.assign(productFound, productData);
-        return this.productsRepository.save(updatedProduct);
+        const saved = await this.productsRepository.save(updatedProduct);
+        const [withStock] = await this.attachStockStatus([saved]);
+        return toAdminProductResponse(withStock);
     }
     
     async delete(id: number)  {

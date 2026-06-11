@@ -5,6 +5,7 @@ import { ProductsService } from './products.service';
 import { Product } from './product.entity';
 import { Category } from '../categories/category.entity';
 import { JwtStrategy } from '../auth/jwt/jwt.strategy';
+import { OptionalJwtAuthGuard } from '../auth/jwt/optional-jwt-auth.guard';
 import { OrderHasProducts } from 'src/orders/order_has_products.entity';
 import { InventoryModule } from '../inventory/inventory.module';
 import { CartItem } from '../cart/entities/cart-item.entity';
@@ -24,6 +25,6 @@ import { StockMovement } from '../inventory/entities/stock-movement.entity';
     InventoryModule,
   ],
   controllers: [ProductsController],
-  providers: [ProductsService, JwtStrategy],
+  providers: [ProductsService, JwtStrategy, OptionalJwtAuthGuard],
 })
 export class ProductsModule {}

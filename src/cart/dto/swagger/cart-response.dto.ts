@@ -8,7 +8,7 @@ export class CartItemResponseDto {
   name: string;
 
   @ApiProperty({ example: 49.9 })
-  price: number;
+  sales_price: number;
 
   @ApiProperty({ example: 2 })
   quantity: number;

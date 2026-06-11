@@ -26,8 +26,11 @@ export class Product {
     @Column()
     id_category: number;
     
-    @Column()
-    price: number;
+    @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+    purchase_price: number;
+
+    @Column({ type: 'decimal', precision: 10, scale: 2 })
+    sale_price: number;
 
     @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;

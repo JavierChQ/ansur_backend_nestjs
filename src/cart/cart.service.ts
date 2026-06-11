@@ -158,13 +158,13 @@ export class CartService {
     const items = (cart.items ?? []).map((item) => ({
       id_product: item.id_product,
       name: item.product?.name,
-      price: item.product?.price,
+      sales_price: Number(item.product?.sale_price ?? 0),
       quantity: item.quantity,
       in_stock: true,
     }));
 
     const total = items.reduce(
-      (sum, item) => sum + (item.price ?? 0) * item.quantity,
+      (sum, item) => sum + (item.sales_price ?? 0) * item.quantity,
       0,
     );
 

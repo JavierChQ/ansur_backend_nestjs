@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class ProductPublicResponseDto {
+export class ProductAdminResponseDto {
   @ApiProperty({ example: 1 })
   id: number;
 
@@ -19,12 +19,21 @@ export class ProductPublicResponseDto {
   @ApiProperty({ example: 3 })
   id_category: number;
 
+  @ApiProperty({ example: 25 })
+  purchase_price: number;
+
   @ApiProperty({ example: 49.9 })
-  sales_price: number;
+  sale_price: number;
 
   @ApiProperty({
     example: true,
     description: 'Indica si hay unidades disponibles (sin mostrar cantidad exacta)',
   })
   in_stock: boolean;
+
+  @ApiPropertyOptional({
+    example: 'El precio de venta es menor al precio de compra',
+    description: 'Advertencia cuando sale_price < purchase_price',
+  })
+  price_warning?: string;
 }

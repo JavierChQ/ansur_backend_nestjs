@@ -24,7 +24,7 @@ export class CheckoutService {
     const cartId = await this.cartService.getActiveCartId(userId);
 
     const amount = cartItems.reduce(
-      (sum, item) => sum + item.product.price * item.quantity,
+      (sum, item) => sum + Number(item.product.sale_price) * item.quantity,
       0,
     );
 
