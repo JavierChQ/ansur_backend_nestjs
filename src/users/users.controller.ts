@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, FileTypeValidator, Get, MaxFileSizeValidator, Param, ParseFilePipe, ParseIntPipe, Post, Put, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseFilePipe, ParseIntPipe, Post, Put, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { JwtAuthGuard } from 'src/auth/jwt/jwt-auth.guard';
@@ -10,6 +10,7 @@ import { HasRoles } from 'src/auth/jwt/has-roles';
 import { ApiTags } from '@nestjs/swagger';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import {v2 as cloudinary} from 'cloudinary';
+import { imageFileValidators } from '../common/validators/image-file.validators';
 
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
@@ -48,10 +49,7 @@ export class UsersController {
     updateWithImage(
         @UploadedFile(
             new ParseFilePipe({
-                validators: [
-                  new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 10 }),
-                  new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
-                ],
+                validators: imageFileValidators,
               }),
         ) file: Express.Multer.File,
         @Param('id', ParseIntPipe) id: number, 

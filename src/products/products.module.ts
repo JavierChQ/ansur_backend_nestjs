@@ -7,10 +7,20 @@ import { Category } from '../categories/category.entity';
 import { JwtStrategy } from '../auth/jwt/jwt.strategy';
 import { OrderHasProducts } from 'src/orders/order_has_products.entity';
 import { InventoryModule } from '../inventory/inventory.module';
+import { CartItem } from '../cart/entities/cart-item.entity';
+import { Inventory } from '../inventory/entities/inventory.entity';
+import { StockMovement } from '../inventory/entities/stock-movement.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Product, Category, OrderHasProducts]),
+    TypeOrmModule.forFeature([
+      Product,
+      Category,
+      OrderHasProducts,
+      CartItem,
+      Inventory,
+      StockMovement,
+    ]),
     InventoryModule,
   ],
   controllers: [ProductsController],

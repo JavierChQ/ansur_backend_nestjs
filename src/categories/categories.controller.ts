@@ -1,4 +1,4 @@
-import { Controller, UseGuards, Put, UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator, Param, Body, ParseIntPipe, Post, Get, Delete } from '@nestjs/common';
+import { Controller, UseGuards, Put, UseInterceptors, UploadedFile, ParseFilePipe, Param, Body, ParseIntPipe, Post, Get, Delete } from '@nestjs/common';
 import { HasRoles } from '../auth/jwt/has-roles';
 import { JwtRole } from '../auth/jwt/jwt-role';
 import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
@@ -10,6 +10,7 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ApiTags } from '@nestjs/swagger';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import {v2 as cloudinary} from 'cloudinary';
+import { imageFileValidators } from '../common/validators/image-file.validators';
 
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
@@ -21,25 +22,25 @@ export class CategoriesController {
 
     constructor(private CategoriesService: CategoriesService) {}
 
-    // @HasRoles(JwtRole.CLIENT, JwtRole.ADMIN)
-    // @UseGuards(JwtAuthGuard, JwtRolesGuard)
     @Get()
     findAll() {
         return this.CategoriesService.findAll()
     }
 
+    @Get(':id')
+    findById(@Param('id', ParseIntPipe) id: number) {
+        return this.CategoriesService.findById(id);
+    }
+
     @HasRoles(JwtRole.ADMIN)
     @UseGuards(JwtAuthGuard, JwtRolesGuard)
-    @Post() // http:localhost:3000/categories -> POST
+    @Post()
     @UseInterceptors(FileInterceptor('file', {storage}))
     createWithImage(
         @UploadedFile(
             new ParseFilePipe({
-                validators: [
-                  new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 10 }),
-                  new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
-                ],
-              }),
+                validators: imageFileValidators,
+            }),
         ) file: Express.Multer.File,
         @Body() category: CreateCategoryDto
     ) {
@@ -48,28 +49,25 @@ export class CategoriesController {
     
     @HasRoles(JwtRole.ADMIN)
     @UseGuards(JwtAuthGuard, JwtRolesGuard)
-    @Put(':id')
-    update( @Param('id', ParseIntPipe) id: number, @Body() category: UpdateCategoryDto) {
-        return this.CategoriesService.update(id, category);
-    }
-
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
-    @Put('upload/:id') // http:localhost:3000/categories -> PUT
+    @Put('upload/:id')
     @UseInterceptors(FileInterceptor('file', {storage}))
     updateWithImage(
         @UploadedFile(
             new ParseFilePipe({
-                validators: [
-                  new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 10 }),
-                  new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
-                ],
-              }),
+                validators: imageFileValidators,
+            }),
         ) file: Express.Multer.File,
         @Param('id', ParseIntPipe) id: number,
         @Body() category: UpdateCategoryDto
     ) {
         return this.CategoriesService.updateWithImage(file, id, category);
+    }
+
+    @HasRoles(JwtRole.ADMIN)
+    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @Put(':id')
+    update( @Param('id', ParseIntPipe) id: number, @Body() category: UpdateCategoryDto) {
+        return this.CategoriesService.update(id, category);
     }
 
     @HasRoles(JwtRole.ADMIN)

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, FileTypeValidator, Get, MaxFileSizeValidator, Param, ParseFilePipe, ParseIntPipe, Post, Put, UploadedFiles, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseFilePipe, ParseIntPipe, Post, Put, UploadedFiles, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ProductsService } from "./products.service";
 import { HasRoles } from "src/auth/jwt/has-roles";
 import { JwtRole } from "src/auth/jwt/jwt-role";
@@ -12,6 +12,7 @@ import { ProductPublicResponseDto } from "./dto/swagger/product-public-response.
 import { CreateProductDto } from "./dto/create-product.dto";
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import {v2 as cloudinary} from 'cloudinary';
+import { imageFileValidators } from '../common/validators/image-file.validators';
 
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
@@ -100,10 +101,7 @@ export class ProductsController {
     create(
         @UploadedFiles(
             new ParseFilePipe({
-                validators: [
-                  new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 10 }),
-                  new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
-                ],
+                validators: imageFileValidators,
               }),
         ) files: Array<Express.Multer.File>,
         @Body() product: CreateProductDto
@@ -121,10 +119,7 @@ export class ProductsController {
     updateWithImage(
         @UploadedFiles(
             new ParseFilePipe({
-                validators: [
-                  new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 10 }),
-                  new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
-                ],
+                validators: imageFileValidators,
               }),
         ) files: Array<Express.Multer.File>,
         @Param('id', ParseIntPipe) id: number,

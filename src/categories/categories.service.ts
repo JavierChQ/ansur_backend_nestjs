@@ -5,9 +5,9 @@ import { Category } from './category.entity';
 import { Repository } from 'typeorm';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ConfigService } from '@nestjs/config';
-import {v2 as cloudinary} from 'cloudinary';
 import { configureCloudinary } from '../cloudinary/cloudinary.config';
-
+import { getCloudinaryUrlFromFile } from '../cloudinary/cloudinary-upload.util';
+import { Product } from '../products/product.entity';
 
 @Injectable()
 export class CategoriesService {
@@ -15,6 +15,8 @@ export class CategoriesService {
     constructor(
         @InjectRepository(Category) 
         private categoriesRepository: Repository<Category>,
+        @InjectRepository(Product)
+        private productsRepository: Repository<Product>,
         private configService: ConfigService,
     ) {
         configureCloudinary(this.configService);
@@ -24,13 +26,18 @@ export class CategoriesService {
         return this.categoriesRepository.find()    
     }
 
-    async create(file: Express.Multer.File, category: CreateCategoryDto) {
+    async findById(id: number) {
+        const category = await this.categoriesRepository.findOneBy({ id });
 
-        const result = await cloudinary.uploader.upload(file.path);
-        if (!result) {
-          throw new HttpException('La imagen no se pudo guardar', HttpStatus.INTERNAL_SERVER_ERROR);
+        if (!category) {
+            throw new HttpException('La categoria no existe', HttpStatus.NOT_FOUND);
         }
-        category.image = result.secure_url;
+
+        return category;
+    }
+
+    async create(file: Express.Multer.File, category: CreateCategoryDto) {
+        category.image = getCloudinaryUrlFromFile(file);
         const newCategory = this.categoriesRepository.create(category);
         return this.categoriesRepository.save(newCategory);
     }
@@ -47,18 +54,13 @@ export class CategoriesService {
     }
    
     async updateWithImage(file: Express.Multer.File, id: number, category: UpdateCategoryDto) {
-        const result = await cloudinary.uploader.upload(file.path);
-        if (!result) {
-          throw new HttpException('La imagen no se pudo guardar', HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-        
         const categoryFound = await this.categoriesRepository.findOneBy({ id: id });
         
         if (!categoryFound) {
             throw new HttpException('La categoria no existe', HttpStatus.NOT_FOUND);
         }
 
-        category.image = result.secure_url;
+        category.image = getCloudinaryUrlFromFile(file);
         const updatedCategory = Object.assign(categoryFound, category);
         return this.categoriesRepository.save(updatedCategory);
     }
@@ -68,6 +70,15 @@ export class CategoriesService {
         
         if (!categoryFound) {
             throw new HttpException('La categoria no existe', HttpStatus.NOT_FOUND);
+        }
+
+        const productsCount = await this.productsRepository.countBy({ id_category: id });
+
+        if (productsCount > 0) {
+            throw new HttpException(
+                `No se puede eliminar la categoría porque tiene ${productsCount} producto(s) asociado(s)`,
+                HttpStatus.CONFLICT,
+            );
         }
         
         return this.categoriesRepository.delete(id);

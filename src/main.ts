@@ -20,7 +20,11 @@ async function bootstrap() {
     credentials: true,
   });
 
-  app.useGlobalPipes(new ValidationPipe({forbidUnknownValues: false}));
+  app.useGlobalPipes(new ValidationPipe({
+    forbidUnknownValues: false,
+    transform: true,
+    transformOptions: { enableImplicitConversion: true },
+  }));
 
   // Inicia la semilla de datos para roles predeterminados.
   // Esto asegura que ADMIN y CLIENT existan en la tabla de roles al arrancar.
