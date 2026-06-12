@@ -5,13 +5,32 @@ export interface MercadoPagoWebhookHeaders {
   'x-request-id'?: string;
 }
 
+function getHeader(
+  headers: Record<string, string | undefined>,
+  name: string,
+): string | undefined {
+  const direct = headers[name];
+  if (direct) {
+    return direct;
+  }
+
+  const lower = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === lower && value) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
 export function validateMercadoPagoWebhookSignature(
   secret: string,
-  headers: MercadoPagoWebhookHeaders,
+  headers: Record<string, string | undefined>,
   dataId: string,
 ): boolean {
-  const xSignature = headers['x-signature'];
-  const xRequestId = headers['x-request-id'];
+  const xSignature = getHeader(headers, 'x-signature');
+  const xRequestId = getHeader(headers, 'x-request-id');
 
   if (!xSignature || !xRequestId || !secret) {
     return false;
@@ -45,4 +64,20 @@ export function validateMercadoPagoWebhookSignature(
   } catch {
     return false;
   }
+}
+
+export function extractWebhookPaymentId(
+  body: { type?: string; data?: { id?: string } },
+  query: Record<string, string | undefined>,
+): string | null {
+  const topic = query['topic'] ?? query['type'] ?? body.type;
+
+  if (topic && topic !== 'payment') {
+    return null;
+  }
+
+  const paymentId =
+    body.data?.id ?? query['data.id'] ?? query['id'] ?? query['data_id'];
+
+  return paymentId ? String(paymentId) : null;
 }

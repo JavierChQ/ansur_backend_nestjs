@@ -1,4 +1,4 @@
-import { Controller, UseGuards, Param, Body, ParseIntPipe, Post, Get, Query, Headers, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, UseGuards, Param, Body, ParseIntPipe, Post, Get, Query, Headers, HttpCode, HttpStatus, Req } from '@nestjs/common';
 import {
   ApiConflictResponse,
   ApiGoneResponse,
@@ -19,6 +19,7 @@ import { CardTokenBody } from '../mercado_pago/models/card_token_body';
 import { PaymentBodyDto } from './dto/payment-body.dto';
 import { MercadoPagoWebhookDto } from './dto/mercado-pago-webhook.dto';
 import { MercadoPagoConfigDto } from './dto/mercado-pago-config.dto';
+import { OrderPaymentStatusDto } from './dto/order-payment-status.dto';
 
 @ApiTags('mercadopago')
 @Controller('mercadopago')
@@ -85,6 +86,41 @@ export class MercadoPagoController {
     @ApiGoneResponse({ description: 'El checkout expiró (15 min)' })
     createPayment(@Body() paymentBody: PaymentBodyDto) {
         return this.mercadoPagoService.createPayment(paymentBody);
+    }
+
+    @ApiProtected()
+    @HasRoles(JwtRole.CLIENT, JwtRole.ADMIN)
+    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @Get('orders/:orderId/payment-status')
+    @ApiOperation({
+        summary: 'Estado de pago de una orden',
+        description:
+            'Permite consultar si la orden pasó a PAGADO tras un webhook o un pago pendiente.',
+    })
+    @ApiOkResponse({ type: OrderPaymentStatusDto })
+    @ApiNotFoundResponse({ description: 'Orden no encontrada' })
+    getOrderPaymentStatus(
+        @Req() req: { user: { userId: number } },
+        @Param('orderId', ParseIntPipe) orderId: number,
+    ) {
+        return this.mercadoPagoService.getOrderPaymentStatus(req.user.userId, orderId);
+    }
+
+    @Get('webhooks')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({
+        summary: 'Webhook de Mercado Pago (GET / IPN)',
+        description:
+            'Recibe notificaciones con query topic=payment&id=.... ' +
+            'Misma lógica que POST /mercadopago/webhooks.',
+    })
+    @ApiOkResponse({ description: 'Notificación recibida' })
+    @ApiUnauthorizedResponse({ description: 'Firma de webhook inválida' })
+    handleWebhookGet(
+        @Query() query: Record<string, string | undefined>,
+        @Headers() headers: Record<string, string | undefined>,
+    ) {
+        return this.mercadoPagoService.handlePaymentWebhook({}, query, headers);
     }
 
     @Post('webhooks')

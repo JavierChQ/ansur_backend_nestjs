@@ -18,7 +18,7 @@ import { OrderStatus } from '../orders/enums/order-status.enum';
 import { InventoryService } from '../inventory/inventory.service';
 import { ORDER_PAID_EVENT, OrderPaidEvent } from '../mail/events/order-paid.event';
 import { MercadoPagoWebhookDto } from './dto/mercado-pago-webhook.dto';
-import { validateMercadoPagoWebhookSignature } from './utils/webhook-signature.util';
+import { validateMercadoPagoWebhookSignature, extractWebhookPaymentId } from './utils/webhook-signature.util';
 
 interface OrderItemInput {
   id_product: number;
@@ -39,6 +39,7 @@ export class MercadoPagoService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     this.assertMatchingCredentialEnvironments();
+    this.assertProductionWebhookConfig();
 
     try {
       await firstValueFrom(
@@ -63,10 +64,29 @@ export class MercadoPagoService implements OnModuleInit {
   }
 
   getPublicConfig() {
+    const publicKey = this.getPublicKey();
     return {
-      public_key: this.getPublicKey(),
+      public_key: publicKey,
       site_id: 'MPE',
       locale: 'es-PE',
+      sandbox: publicKey.startsWith('TEST-'),
+    };
+  }
+
+  async getOrderPaymentStatus(userId: number, orderId: number) {
+    const order = await this.ordersRepository.findOne({
+      where: { id: orderId, id_client: userId },
+    });
+
+    if (!order) {
+      throw new HttpException('Orden no encontrada', HttpStatus.NOT_FOUND);
+    }
+
+    return {
+      order_id: order.id,
+      status: order.status,
+      payment_id: order.payment_id ?? null,
+      expires_at: order.expires_at ?? null,
     };
   }
 
@@ -162,25 +182,19 @@ export class MercadoPagoService implements OnModuleInit {
     query: Record<string, string | undefined>,
     headers: Record<string, string | undefined>,
   ): Promise<void> {
-    if (body.type && body.type !== 'payment') {
-      this.logger.debug(`Webhook ignorado (type=${body.type})`);
-      return;
-    }
-
-    const paymentId = body.data?.id ?? query['data.id'];
+    const paymentId = extractWebhookPaymentId(body, query);
     if (!paymentId) {
-      this.logger.warn('Webhook sin payment id');
+      this.logger.debug('Webhook ignorado (sin payment id o topic distinto)');
       return;
     }
 
-    const dataId = String(paymentId);
-    this.assertValidWebhookSignature(dataId, headers);
+    this.assertValidWebhookSignature(paymentId, headers);
 
-    const payment = await this.fetchPaymentById(dataId);
+    const payment = await this.fetchPaymentById(paymentId);
     const orderId = this.parseOrderIdFromPayment(payment);
 
     if (!orderId) {
-      this.logger.warn(`Pago ${dataId} sin external_reference válida`);
+      this.logger.warn(`Pago ${paymentId} sin external_reference válida`);
       return;
     }
 
@@ -190,7 +204,7 @@ export class MercadoPagoService implements OnModuleInit {
     });
 
     if (!order) {
-      this.logger.warn(`Orden ${orderId} no encontrada para pago ${dataId}`);
+      this.logger.warn(`Orden ${orderId} no encontrada para pago ${paymentId}`);
       return;
     }
 
@@ -335,6 +349,29 @@ export class MercadoPagoService implements OnModuleInit {
       );
     }
     return publicKey;
+  }
+
+  private assertProductionWebhookConfig(): void {
+    const nodeEnv = this.configService.get<string>('NODE_ENV') ?? 'development';
+    if (nodeEnv !== 'production') {
+      return;
+    }
+
+    const secret = this.configService.get<string>('MERCADOPAGO_WEBHOOK_SECRET')?.trim();
+    if (!secret) {
+      this.logger.error(
+        'NODE_ENV=production pero MERCADOPAGO_WEBHOOK_SECRET está vacío. ' +
+          'Configuralo en el panel de Mercado Pago → Webhooks y en las variables del servidor.',
+      );
+    }
+
+    const accessToken = this.getAccessToken();
+    if (accessToken.startsWith('TEST-')) {
+      this.logger.error(
+        'NODE_ENV=production pero MERCADOPAGO_ACCESS_TOKEN usa credenciales TEST-. ' +
+          'Usá credenciales APP_USR- de producción.',
+      );
+    }
   }
 
   private assertMatchingCredentialEnvironments(): void {

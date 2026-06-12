@@ -9,4 +9,7 @@ export class MercadoPagoConfigDto {
 
   @ApiProperty({ example: 'es-PE' })
   locale: string;
+
+  @ApiProperty({ example: true, description: 'true si public_key usa prefijo TEST-' })
+  sandbox: boolean;
 }
