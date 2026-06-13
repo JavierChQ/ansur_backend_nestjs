@@ -14,6 +14,7 @@ import { ApiProtected } from '../common/decorators/api-protected.decorator';
 import { OrdersService } from './orders.service';
 import { CheckoutService } from './checkout.service';
 import { CheckoutDto } from './dto/checkout.dto';
+import { GuestCheckoutDto } from './dto/guest-checkout.dto';
 import { CheckoutOrderResponseDto } from './dto/swagger/order-response.dto';
 
 @ApiTags('orders')
@@ -25,6 +26,15 @@ export class OrdersController {
         private ordersService: OrdersService,
         private checkoutService: CheckoutService,
     ) {}
+
+    @HasRoles(JwtRole.ADMIN)
+    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @Get('detail/:id')
+    @ApiOperation({ summary: 'Detalle de una orden (admin)' })
+    @ApiParam({ name: 'id', example: 45 })
+    findById(@Param('id', ParseIntPipe) id: number) {
+        return this.ordersService.findById(id);
+    }
 
     @HasRoles(JwtRole.ADMIN)
     @UseGuards(JwtAuthGuard, JwtRolesGuard)
@@ -59,6 +69,18 @@ export class OrdersController {
         @Body() dto: CheckoutDto,
     ) {
         return this.checkoutService.checkout(req.user.userId, dto);
+    }
+
+    @Post('guest-checkout')
+    @ApiOperation({
+        summary: 'Checkout sin autenticación',
+        description:
+            'Crea o reutiliza un usuario por email, valida stock, crea orden PENDIENTE_PAGO y devuelve JWT para pagar.',
+    })
+    @ApiOkResponse({ description: 'Orden, token JWT y usuario' })
+    @ApiConflictResponse({ description: 'Stock insuficiente o teléfono duplicado' })
+    guestCheckout(@Body() dto: GuestCheckoutDto) {
+        return this.checkoutService.guestCheckout(dto);
     }
 
     @HasRoles(JwtRole.ADMIN)

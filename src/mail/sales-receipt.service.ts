@@ -95,10 +95,12 @@ export class SalesReceiptService {
       timeStyle: 'short',
     });
 
-    const customerName = `${order.user.name} ${order.user.lastname}`.trim();
-    const deliveryAddress = order.address
-      ? `${order.address.address}, ${order.address.district}`
-      : '—';
+    const customerName = order.customer_name && order.customer_lastname
+      ? `${order.customer_name} ${order.customer_lastname}`.trim()
+      : `${order.user?.name ?? ''} ${order.user?.lastname ?? ''}`.trim();
+
+    const customerEmail = order.customer_email ?? order.user?.email ?? '—';
+    const deliverySummary = this.buildDeliverySummary(order);
 
     return `
 <!DOCTYPE html>
@@ -117,8 +119,8 @@ export class SalesReceiptService {
   <h2 style="margin-top:0;">Comprobante de compra #${order.id}</h2>
   <p style="margin:4px 0;"><strong>Fecha:</strong> ${orderDate}</p>
   <p style="margin:4px 0;"><strong>Cliente:</strong> ${this.escapeHtml(customerName)}</p>
-  <p style="margin:4px 0;"><strong>Correo:</strong> ${this.escapeHtml(order.user.email)}</p>
-  <p style="margin:4px 0;"><strong>Entrega:</strong> ${this.escapeHtml(deliveryAddress)}</p>
+  <p style="margin:4px 0;"><strong>Correo:</strong> ${this.escapeHtml(customerEmail)}</p>
+  <p style="margin:4px 0;"><strong>Entrega:</strong> ${this.escapeHtml(deliverySummary)}</p>
   ${order.payment_id ? `<p style="margin:4px 0;"><strong>Pago Mercado Pago:</strong> ${this.escapeHtml(order.payment_id)}</p>` : ''}
 
   <table style="width:100%;border-collapse:collapse;margin:24px 0;font-size:14px;">
@@ -159,6 +161,45 @@ export class SalesReceiptService {
 </body>
 </html>
     `.trim();
+  }
+
+  private buildDeliverySummary(order: Order): string {
+    if (order.delivery_type === 'pickup') {
+      const receptor = this.formatReceptor(order);
+      return receptor ? `Retiro en tienda — Recoge: ${receptor}` : 'Retiro en tienda';
+    }
+
+    if (order.direccion || order.distrito) {
+      const parts = [
+        order.direccion,
+        order.distrito,
+        order.provincia,
+        order.departamento,
+      ].filter(Boolean);
+      const addressLine = parts.join(', ');
+      const ref = order.referencia ? `Ref: ${order.referencia}` : '';
+      const receptor = this.formatReceptor(order);
+      return [addressLine, ref, receptor ? `Recibe: ${receptor}` : '']
+        .filter(Boolean)
+        .join(' | ');
+    }
+
+    if (order.address) {
+      return `${order.address.address}, ${order.address.district}`;
+    }
+
+    return '—';
+  }
+
+  private formatReceptor(order: Order): string {
+    const name = `${order.receptor_nombres ?? ''} ${order.receptor_apellidos ?? ''}`.trim();
+    if (!name) {
+      return '';
+    }
+    const doc = order.receptor_doc_type && order.receptor_doc_number
+      ? ` (${order.receptor_doc_type} ${order.receptor_doc_number})`
+      : '';
+    return `${name}${doc}`;
   }
 
   private escapeHtml(value: string): string {

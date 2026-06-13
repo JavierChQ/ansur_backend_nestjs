@@ -31,6 +31,60 @@ export class Order {
     @Column({ type: 'datetime', nullable: true })
     receipt_sent_at: Date;
 
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    delivery_type: string;
+
+    @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, default: 0 })
+    delivery_fee: number;
+
+    @Column({ type: 'varchar', length: 120, nullable: true })
+    customer_name: string;
+
+    @Column({ type: 'varchar', length: 120, nullable: true })
+    customer_lastname: string;
+
+    @Column({ type: 'varchar', length: 180, nullable: true })
+    customer_email: string;
+
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    customer_phone: string;
+
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    customer_doc_type: string;
+
+    @Column({ type: 'varchar', length: 50, nullable: true })
+    customer_doc_number: string;
+
+    @Column({ type: 'varchar', length: 120, nullable: true })
+    departamento: string;
+
+    @Column({ type: 'varchar', length: 120, nullable: true })
+    provincia: string;
+
+    @Column({ type: 'varchar', length: 120, nullable: true })
+    distrito: string;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    direccion: string;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    referencia: string;
+
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    receptor_type: string;
+
+    @Column({ type: 'varchar', length: 120, nullable: true })
+    receptor_nombres: string;
+
+    @Column({ type: 'varchar', length: 120, nullable: true })
+    receptor_apellidos: string;
+
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    receptor_doc_type: string;
+
+    @Column({ type: 'varchar', length: 50, nullable: true })
+    receptor_doc_number: string;
+
     @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
     
@@ -48,9 +102,4 @@ export class Order {
     @OneToMany(() => OrderHasProducts, (ohp) => ohp.order)
     @JoinColumn({ referencedColumnName: 'id_order' })
     orderHasProducts: OrderHasProducts[]
-    
-    // @OneToMany(() => Product, (product) => product.orderHasProducts)
-    // @JoinColumn({ referencedColumnName: 'id_order' })
-    // products: Product[]
-
 }

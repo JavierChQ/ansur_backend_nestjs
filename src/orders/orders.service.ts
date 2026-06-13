@@ -3,21 +3,35 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from './order.entity';
 import { OrderStatus } from './enums/order-status.enum';
+import { enrichOrderSnapshot } from './order-snapshot.util';
 
 @Injectable()
 export class OrdersService {
 
     constructor(@InjectRepository(Order) private ordersRepository: Repository<Order>) {}
 
-    findAll() {
-        return this.ordersRepository.find({ relations: ['user', 'address', 'orderHasProducts.product'] })
-    }
+    async findAll() {
+    const orders = await this.ordersRepository.find({
+      relations: ['user', 'address', 'orderHasProducts', 'orderHasProducts.product'],
+      order: { created_at: 'DESC' },
+    });
+    return orders.map((order) => enrichOrderSnapshot(order));
+  }
+
+  async findById(id: number) {
+    const order = await this.ordersRepository.findOne({
+      where: { id },
+      relations: ['user', 'address', 'orderHasProducts', 'orderHasProducts.product'],
+    });
+    return order ? enrichOrderSnapshot(order) : null;
+  }
     
-    findByClient(idClient: number) {
-        return this.ordersRepository.find({ 
+    async findByClient(idClient: number) {
+        const orders = await this.ordersRepository.find({ 
             relations: ['user', 'address', 'orderHasProducts.product'],
             where: { id_client: idClient },
-        })
+        });
+        return orders.map((order) => enrichOrderSnapshot(order));
     }
 
     async updateStatus(id: number) {
@@ -26,6 +40,7 @@ export class OrdersService {
             throw new HttpException('Orden no encontrada', HttpStatus.NOT_FOUND);
         }
         const updatedOrder = Object.assign(orderFound, { status: OrderStatus.DESPACHADO });
-        return this.ordersRepository.save(updatedOrder);
+        await this.ordersRepository.save(updatedOrder);
+        return this.findById(id);
     }
 }
