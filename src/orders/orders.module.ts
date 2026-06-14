@@ -1,7 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { CheckoutService } from './checkout.service';
+import { GuestUserProvisioningService } from './guest-user-provisioning.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from './order.entity';
 import { OrderHasProducts } from './order_has_products.entity';
@@ -19,10 +20,10 @@ import { AuthModule } from '../auth/auth.module';
     TypeOrmModule.forFeature([Order, OrderHasProducts, User, Address, Product, Rol]),
     CartModule,
     InventoryModule,
-    AuthModule,
+    forwardRef(() => AuthModule),
   ],
-  providers: [OrdersService, CheckoutService, JwtStrategy],
+  providers: [OrdersService, CheckoutService, GuestUserProvisioningService, JwtStrategy],
   controllers: [OrdersController],
-  exports: [OrdersService, CheckoutService],
+  exports: [OrdersService, CheckoutService, GuestUserProvisioningService],
 })
 export class OrdersModule {}

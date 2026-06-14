@@ -26,7 +26,21 @@ export class UsersService {
     }
 
     findAll() {
-        return this.usersRepository.find({relations: ['roles']});
+        return this.usersRepository.find({ relations: ['roles'] });
+    }
+
+    async findClientsForAdmin() {
+        const users = await this.usersRepository.find({
+            relations: ['roles'],
+            order: { created_at: 'DESC' },
+        });
+
+        return users
+            .filter((user) => user.roles?.some((role) => role.id === 'CLIENT'))
+            .map((user) => {
+                const { password, ...safeUser } = user;
+                return safeUser;
+            });
     }
 
     async update(id: number, user: UpdateUserDto) {

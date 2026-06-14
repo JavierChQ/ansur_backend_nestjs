@@ -14,7 +14,13 @@ export class JwtRolesGuard implements CanActivate {
     if (!requiredRoles) {
       return true;
     }
-    const { user } = context.switchToHttp().getRequest();
+
+    const request = context.switchToHttp().getRequest();
+    if (request.checkoutAuth) {
+      return true;
+    }
+
+    const { user } = request;
     return requiredRoles.some((role) => user?.roles?.includes(role));
   }
 }

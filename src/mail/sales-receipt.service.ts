@@ -37,20 +37,21 @@ export class SalesReceiptService {
       return;
     }
 
-    if (!order.user?.email) {
-      this.logger.warn(`Orden ${orderId} sin email de usuario; comprobante omitido.`);
+    const recipientEmail = order.user?.email ?? order.customer_email;
+    if (!recipientEmail) {
+      this.logger.warn(`Orden ${orderId} sin email; comprobante omitido.`);
       return;
     }
 
     const html = this.buildReceiptHtml(order);
     const subject = `Comprobante de compra #${order.id} - ${this.getCompanyName()}`;
 
-    await this.mailService.sendHtmlEmail(order.user.email, subject, html);
+    await this.mailService.sendHtmlEmail(recipientEmail, subject, html);
 
     order.receipt_sent_at = new Date();
     await this.ordersRepository.save(order);
 
-    this.logger.log(`Comprobante enviado para orden ${orderId} → ${order.user.email}`);
+    this.logger.log(`Comprobante enviado para orden ${orderId} → ${recipientEmail}`);
   }
 
   private getCompanyName(): string {

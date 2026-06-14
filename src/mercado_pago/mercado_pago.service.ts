@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios/dist';
-import { Injectable, HttpException, HttpStatus, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger, OnModuleInit, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosResponse, AxiosError } from 'axios';
 import { catchError, firstValueFrom, map } from 'rxjs';
@@ -19,6 +19,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { ORDER_PAID_EVENT, OrderPaidEvent } from '../mail/events/order-paid.event';
 import { MercadoPagoWebhookDto } from './dto/mercado-pago-webhook.dto';
 import { validateMercadoPagoWebhookSignature, extractWebhookPaymentId } from './utils/webhook-signature.util';
+import { PaymentAuthContext } from '../common/constants/checkout-auth.constants';
 
 interface OrderItemInput {
   id_product: number;
@@ -73,14 +74,16 @@ export class MercadoPagoService implements OnModuleInit {
     };
   }
 
-  async getOrderPaymentStatus(userId: number, orderId: number) {
+  async getOrderPaymentStatus(orderId: number, auth: PaymentAuthContext) {
     const order = await this.ordersRepository.findOne({
-      where: { id: orderId, id_client: userId },
+      where: { id: orderId },
     });
 
     if (!order) {
       throw new HttpException('Orden no encontrada', HttpStatus.NOT_FOUND);
     }
+
+    this.assertOrderPaymentAccess(order, auth, orderId);
 
     return {
       order_id: order.id,
@@ -131,7 +134,10 @@ export class MercadoPagoService implements OnModuleInit {
       .pipe(map((resp: AxiosResponse<CardTokenResponse>) => resp.data));
   }
 
-  async createPayment(paymentBody: PaymentBody): Promise<PaymentResponse> {
+  async createPayment(
+    paymentBody: PaymentBody,
+    auth?: PaymentAuthContext,
+  ): Promise<PaymentResponse> {
     const order = await this.ordersRepository.findOne({
       where: { id: paymentBody.order_id },
       relations: ['orderHasProducts'],
@@ -140,6 +146,8 @@ export class MercadoPagoService implements OnModuleInit {
     if (!order) {
       throw new HttpException('Orden no encontrada', HttpStatus.NOT_FOUND);
     }
+
+    this.assertOrderPaymentAccess(order, auth, paymentBody.order_id);
 
     if (order.status !== OrderStatus.PENDIENTE_PAGO) {
       throw new HttpException('La orden no está pendiente de pago', HttpStatus.CONFLICT);
@@ -470,5 +478,41 @@ export class MercadoPagoService implements OnModuleInit {
         `Orden ${order.id} actualizada con pago pendiente ${paymentId}`,
       );
     }
+  }
+
+  private assertOrderPaymentAccess(
+    order: Order,
+    auth: PaymentAuthContext | undefined,
+    requestedOrderId: number,
+  ): void {
+    if (auth?.checkout) {
+      if (auth.checkout.orderId !== requestedOrderId) {
+        throw new ForbiddenException('El token no corresponde a esta orden');
+      }
+
+      if (!order.is_guest_order) {
+        throw new ForbiddenException('Esta orden requiere inicio de sesión');
+      }
+
+      if (order.customer_email !== auth.checkout.email) {
+        throw new ForbiddenException('El token no corresponde a esta orden');
+      }
+
+      return;
+    }
+
+    if (auth?.userId) {
+      if (order.id_client && order.id_client !== auth.userId) {
+        throw new ForbiddenException('No tienes acceso a esta orden');
+      }
+
+      if (!order.id_client && order.is_guest_order) {
+        throw new ForbiddenException('Esta orden requiere checkout_token');
+      }
+
+      return;
+    }
+
+    throw new ForbiddenException('Autenticación requerida');
   }
 }

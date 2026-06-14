@@ -7,10 +7,12 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtRolesGuard } from 'src/auth/jwt/jwt-roles.guard';
 import { JwtRole } from 'src/auth/jwt/jwt-role';
 import { HasRoles } from 'src/auth/jwt/has-roles';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import {v2 as cloudinary} from 'cloudinary';
 import { imageFileValidators } from '../common/validators/image-file.validators';
+import { LegacyGuestMigrationService } from './legacy-guest-migration.service';
+import { MigrateLegacyGuestUsersDto } from './dto/migrate-legacy-guest-users.dto';
 
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
@@ -20,13 +22,34 @@ const storage = new CloudinaryStorage({
 @Controller('users')
 export class UsersController {
 
-    constructor(private usersService: UsersService) {}
+    constructor(
+        private usersService: UsersService,
+        private legacyGuestMigrationService: LegacyGuestMigrationService,
+    ) {}
     
-    @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
+    @HasRoles(JwtRole.ADMIN)
     @UseGuards(JwtAuthGuard, JwtRolesGuard)
-    @Get() // http://localhost/users -> GET
+    @Get()
+    @ApiOperation({ summary: 'Listar clientes para panel admin' })
     findAll() {
-        return this.usersService.findAll();
+        return this.usersService.findClientsForAdmin();
+    }
+
+    @HasRoles(JwtRole.ADMIN)
+    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @Post('migrate-legacy-guests')
+    @ApiOperation({
+        summary: 'Migrar usuarios guest del flujo antiguo',
+        description:
+            'Marca is_guest y password_not_set en cuentas creadas automáticamente durante checkout legacy.',
+    })
+    @ApiOkResponse({ description: 'Resumen de la migración' })
+    migrateLegacyGuests(@Body() dto: MigrateLegacyGuestUsersDto) {
+        return this.legacyGuestMigrationService.run({
+            dryRun: dto.dryRun ?? true,
+            sendActivationEmails: dto.sendActivationEmails ?? false,
+            proximitySeconds: dto.proximitySeconds,
+        });
     }
 
     

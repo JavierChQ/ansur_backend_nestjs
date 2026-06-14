@@ -5,9 +5,9 @@ import { Repository, In } from 'typeorm';
 import { RegisterAuthDto } from './dto/register-auth.dto';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { compare } from 'bcrypt';
-import { jwtConstants } from './jwt/jwt.constants';
 import { JwtService } from '@nestjs/jwt';
 import { Rol } from 'src/roles/rol.entity';
+import { AUTH_ERROR_CODES } from '../common/constants/auth-error-codes.constants';
 
 @Injectable()
 export class AuthService {
@@ -76,6 +76,18 @@ export class AuthService {
         if (!userFound) {
             throw new HttpException('El email no existe', HttpStatus.NOT_FOUND);
         }
+
+        if (userFound.password_not_set) {
+            throw new HttpException(
+                {
+                    statusCode: HttpStatus.FORBIDDEN,
+                    code: AUTH_ERROR_CODES.PASSWORD_NOT_SET,
+                    message:
+                        'Tu cuenta aún no tiene contraseña. Revisa tu correo para activarla o contacta soporte.',
+                },
+                HttpStatus.FORBIDDEN,
+            );
+        }
         
         const isPasswordValid = await compare(password, userFound.password);
         if (!isPasswordValid) {
@@ -100,6 +112,23 @@ export class AuthService {
         delete data.user.password;
 
         return data;
+    }
+
+    async getEmailStatus(email: string) {
+        const user = await this.usersRepository.findOneBy({ email });
+
+        if (!user) {
+            return {
+                exists: false,
+                requires_login: false,
+            };
+        }
+
+        return {
+            exists: true,
+            requires_login: true,
+            password_not_set: user.password_not_set,
+        };
     }
 
 }

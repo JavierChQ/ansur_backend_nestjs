@@ -10,11 +10,14 @@ export class Order {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column()
+    @Column({ nullable: true })
     id_client: number;
     
-    @Column()
+    @Column({ nullable: true })
     id_address: number;
+
+    @Column({ default: false })
+    is_guest_order: boolean;
 
     @Column({ nullable: true })
     amount: number;

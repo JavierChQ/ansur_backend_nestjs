@@ -13,7 +13,9 @@ import { HasRoles } from '../auth/jwt/has-roles';
 import { JwtRole } from '../auth/jwt/jwt-role';
 import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
 import { JwtRolesGuard } from '../auth/jwt/jwt-roles.guard';
+import { CheckoutOrJwtAuthGuard } from '../auth/jwt/checkout-or-jwt-auth.guard';
 import { ApiProtected } from '../common/decorators/api-protected.decorator';
+import { PaymentAuthContext } from '../common/constants/checkout-auth.constants';
 import { MercadoPagoService } from './mercado_pago.service';
 import { CardTokenBody } from '../mercado_pago/models/card_token_body';
 import { PaymentBodyDto } from './dto/payment-body.dto';
@@ -39,7 +41,7 @@ export class MercadoPagoController {
 
     @ApiProtected()
     @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @UseGuards(CheckoutOrJwtAuthGuard, JwtRolesGuard)
     @Get('identification_types')
     @ApiOperation({ summary: 'Tipos de identificación aceptados por Mercado Pago' })
     getIdentificationTypes() {
@@ -48,7 +50,7 @@ export class MercadoPagoController {
     
     @ApiProtected()
     @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @UseGuards(CheckoutOrJwtAuthGuard, JwtRolesGuard)
     @Get('installments/:first_six_digits/:amount')
     @ApiOperation({ summary: 'Cuotas disponibles según BIN y monto' })
     @ApiParam({ name: 'first_six_digits', example: 450799 })
@@ -62,7 +64,7 @@ export class MercadoPagoController {
     
     @ApiProtected()
     @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @UseGuards(CheckoutOrJwtAuthGuard, JwtRolesGuard)
     @Post('card_token')
     @ApiOperation({ summary: 'Generar token de tarjeta para el pago' })
     createCardToken(@Body() cardTokenBody: CardTokenBody) {
@@ -71,12 +73,12 @@ export class MercadoPagoController {
     
     @ApiProtected()
     @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @UseGuards(CheckoutOrJwtAuthGuard, JwtRolesGuard)
     @Post('payments')
     @ApiOperation({
         summary: 'Procesar pago de una orden existente',
         description:
-            'Requiere order_id de POST /orders/checkout. ' +
+            'Requiere JWT de usuario o checkout_token de guest-checkout. ' +
             'Si el pago es aprobado, confirma la venta y descuenta stock. ' +
             'Si es rechazado, libera la reserva.',
     })
@@ -84,26 +86,44 @@ export class MercadoPagoController {
     @ApiNotFoundResponse({ description: 'Orden no encontrada' })
     @ApiConflictResponse({ description: 'La orden no está pendiente de pago' })
     @ApiGoneResponse({ description: 'El checkout expiró (15 min)' })
-    createPayment(@Body() paymentBody: PaymentBodyDto) {
-        return this.mercadoPagoService.createPayment(paymentBody);
+    createPayment(
+        @Req() req: { user?: { userId: number }; checkoutAuth?: PaymentAuthContext['checkout'] },
+        @Body() paymentBody: PaymentBodyDto,
+    ) {
+        return this.mercadoPagoService.createPayment(paymentBody, this.buildPaymentAuth(req));
     }
 
     @ApiProtected()
     @HasRoles(JwtRole.CLIENT, JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @UseGuards(CheckoutOrJwtAuthGuard, JwtRolesGuard)
     @Get('orders/:orderId/payment-status')
     @ApiOperation({
         summary: 'Estado de pago de una orden',
         description:
-            'Permite consultar si la orden pasó a PAGADO tras un webhook o un pago pendiente.',
+            'Permite consultar si la orden pasó a PAGADO tras un webhook o un pago pendiente. ' +
+            'Acepta JWT de usuario o checkout_token.',
     })
     @ApiOkResponse({ type: OrderPaymentStatusDto })
     @ApiNotFoundResponse({ description: 'Orden no encontrada' })
     getOrderPaymentStatus(
-        @Req() req: { user: { userId: number } },
+        @Req() req: { user?: { userId: number }; checkoutAuth?: PaymentAuthContext['checkout'] },
         @Param('orderId', ParseIntPipe) orderId: number,
     ) {
-        return this.mercadoPagoService.getOrderPaymentStatus(req.user.userId, orderId);
+        return this.mercadoPagoService.getOrderPaymentStatus(
+            orderId,
+            this.buildPaymentAuth(req),
+        );
+    }
+
+    private buildPaymentAuth(req: {
+        user?: { userId: number };
+        checkoutAuth?: PaymentAuthContext['checkout'];
+    }): PaymentAuthContext {
+        if (req.checkoutAuth) {
+            return { checkout: req.checkoutAuth };
+        }
+
+        return { userId: req.user?.userId };
     }
 
     @Get('webhooks')

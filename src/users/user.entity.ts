@@ -28,6 +28,12 @@ export class User {
     
     @Column()
     password: string;
+
+    @Column({ default: false })
+    is_guest: boolean;
+
+    @Column({ default: false })
+    password_not_set: boolean;
     
     @Column({ nullable: true })
     notification_token: string;
