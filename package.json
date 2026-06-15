@@ -19,6 +19,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "verify:mercadopago": "node scripts/verify-mercadopago.js",
+    "diagnose:mercadopago": "node scripts/diagnose-mercadopago.js",
+    "test:mercadopago:yape": "node scripts/test-yape-payment.js",
     "migrate:legacy-guests": "ts-node -r tsconfig-paths/register scripts/migrate-legacy-guest-users.ts",
     "migrate:legacy-guests:dry-run": "ts-node -r tsconfig-paths/register scripts/migrate-legacy-guest-users.ts --dry-run",
     "reset-db": "ts-node reset-database.ts"

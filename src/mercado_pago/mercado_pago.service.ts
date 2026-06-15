@@ -54,12 +54,19 @@ export class MercadoPagoService implements OnModuleInit {
             }),
           ),
       );
-      this.logger.log('Credenciales de Mercado Pago verificadas correctamente');
+      this.logger.log('Access token de Mercado Pago aceptado (payment_methods)');
     } catch {
       this.logger.error(
         'MERCADOPAGO_ACCESS_TOKEN inválida o expirada. ' +
           'Copiá Public Key y Access Token juntos desde el panel de MP ' +
           '(Tus integraciones → Credenciales de prueba) y reiniciá el backend.',
+      );
+      return;
+    }
+
+    if ((this.configService.get<string>('NODE_ENV') ?? 'development') !== 'production') {
+      this.logger.warn(
+        'Para validar que el par Public Key + Access Token puede cobrar, ejecutá: npm run verify:mercadopago',
       );
     }
   }
@@ -173,6 +180,9 @@ export class MercadoPagoService implements OnModuleInit {
         )
         .pipe(
           catchError((error: AxiosError) => {
+            this.logger.error(
+              `Mercado Pago POST /payments falló: ${JSON.stringify(error.response?.data ?? error.message)}`,
+            );
             throw new HttpException(
               this.formatMercadoPagoApiError(error.response?.data),
               error.response?.status ?? HttpStatus.BAD_GATEWAY,
@@ -265,16 +275,18 @@ export class MercadoPagoService implements OnModuleInit {
     }
 
     const payload: Record<string, unknown> = {
-      transaction_amount: paymentBody.transaction_amount,
+      transaction_amount: Number(paymentBody.transaction_amount),
       token: paymentBody.token,
-      installments: paymentBody.installments,
+      installments: Number(paymentBody.installments),
       payment_method_id: paymentBody.payment_method_id,
       payer,
       external_reference: String(paymentBody.order_id),
+      description: `Orden #${paymentBody.order_id}`,
     };
 
     if (paymentBody.issuer_id) {
-      payload.issuer_id = paymentBody.issuer_id;
+      const issuerId = Number.parseInt(String(paymentBody.issuer_id), 10);
+      payload.issuer_id = Number.isFinite(issuerId) ? issuerId : paymentBody.issuer_id;
     }
 
     return payload;
@@ -319,22 +331,42 @@ export class MercadoPagoService implements OnModuleInit {
 
     const body = data as Record<string, unknown>;
     const causes = body.cause;
+    let message = '';
 
     if (Array.isArray(causes) && causes.length > 0) {
       const first = causes[0] as Record<string, unknown>;
       if (typeof first.description === 'string' && first.description.trim()) {
-        return first.description;
-      }
-      if (typeof first.code === 'string' && first.code.trim()) {
-        return first.code;
+        message = first.description;
+      } else if (typeof first.code === 'string' && first.code.trim()) {
+        message = first.code;
       }
     }
 
-    if (typeof body.message === 'string' && body.message.trim()) {
-      return body.message;
+    if (!message && typeof body.message === 'string' && body.message.trim()) {
+      message = body.message;
     }
 
-    return 'Error al procesar el pago en Mercado Pago';
+    if (!message) {
+      return 'Error al procesar el pago en Mercado Pago';
+    }
+
+    if (/invalid credentials/i.test(message)) {
+      return (
+        'Credenciales de Mercado Pago inválidas. Copiá Public Key y Access Token juntos ' +
+        'desde el panel (Credenciales de prueba) y reiniciá el backend.'
+      );
+    }
+
+    if (message === 'internal_error') {
+      return (
+        'Mercado Pago rechazó el cobro (internal_error). Las credenciales generan tokens pero la ' +
+        'cuenta/aplicación no puede procesar pagos. En el panel MP: activá Credenciales productivas ' +
+        '(Industria + sitio web), confirmá que la app es Checkout API, y revisá Cuentas de prueba. ' +
+        'Ejecutá "npm run verify:mercadopago" para el diagnóstico completo.'
+      );
+    }
+
+    return message;
   }
 
   private getAccessToken(): string {
