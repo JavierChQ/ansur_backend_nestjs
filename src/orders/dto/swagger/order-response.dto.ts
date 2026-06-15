@@ -12,6 +12,9 @@ export class CheckoutOrderResponseDto {
   @ApiProperty({ example: 45 })
   id: number;
 
+  @ApiProperty({ example: 'K7M2P9', description: 'Código alfanumérico público del pedido' })
+  reference_code: string;
+
   @ApiProperty({ example: 1 })
   id_client: number;
 

@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from '../orders/order.entity';
 import { MailService } from './mail.service';
+import { getOrderReferenceCode } from '../orders/order-reference.util';
 import {
   extractTaxableBase,
   extractTaxAmount,
@@ -43,8 +44,9 @@ export class SalesReceiptService {
       return;
     }
 
-    const html = this.buildReceiptHtml(order);
-    const subject = `Comprobante de compra #${order.id} - ${this.getCompanyName()}`;
+    const orderReference = getOrderReferenceCode(order);
+    const html = this.buildReceiptHtml(order, orderReference);
+    const subject = `Comprobante de compra ${orderReference} - ${this.getCompanyName()}`;
 
     await this.mailService.sendHtmlEmail(recipientEmail, subject, html);
 
@@ -58,7 +60,7 @@ export class SalesReceiptService {
     return this.configService.get<string>('COMPANY_NAME') ?? 'Ansur';
   }
 
-  private buildReceiptHtml(order: Order): string {
+  private buildReceiptHtml(order: Order, orderReference: string): string {
     const companyName = this.getCompanyName();
     const companyRut = this.configService.get<string>('COMPANY_RUT');
     const companyAddress = this.configService.get<string>('COMPANY_ADDRESS');
@@ -108,7 +110,7 @@ export class SalesReceiptService {
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Comprobante #${order.id}</title>
+  <title>Comprobante ${orderReference}</title>
 </head>
 <body style="font-family:Arial,sans-serif;color:#222;line-height:1.5;max-width:640px;margin:0 auto;padding:24px;">
   <h1 style="color:#1a1a1a;margin-bottom:4px;">${this.escapeHtml(companyName)}</h1>
@@ -117,7 +119,8 @@ export class SalesReceiptService {
 
   <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
 
-  <h2 style="margin-top:0;">Comprobante de compra #${order.id}</h2>
+  <h2 style="margin-top:0;">Comprobante de compra</h2>
+  <p style="margin:4px 0;"><strong>ID de pedido:</strong> ${orderReference}</p>
   <p style="margin:4px 0;"><strong>Fecha:</strong> ${orderDate}</p>
   <p style="margin:4px 0;"><strong>Cliente:</strong> ${this.escapeHtml(customerName)}</p>
   <p style="margin:4px 0;"><strong>Correo:</strong> ${this.escapeHtml(customerEmail)}</p>

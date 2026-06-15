@@ -10,6 +10,9 @@ export class Order {
     @PrimaryGeneratedColumn()
     id: number;
 
+    @Column({ type: 'varchar', length: 6, unique: true, nullable: true })
+    reference_code: string;
+
     @Column({ nullable: true })
     id_client: number;
     
