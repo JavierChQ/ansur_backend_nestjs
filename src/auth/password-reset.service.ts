@@ -9,58 +9,54 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomBytes } from 'crypto';
 import { hash } from 'bcrypt';
 import { IsNull, MoreThan, Repository } from 'typeorm';
-import { AccountActivationService } from '../mail/account-activation.service';
+import { PasswordResetMailService } from '../mail/password-reset-mail.service';
 import { User } from '../users/user.entity';
-import { PasswordSetupToken } from './entities/password-setup-token.entity';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { PasswordSetupService } from './password-setup.service';
+import { JwtRole } from './jwt/jwt-role';
 import { UserSessionService } from './user-session.service';
 
+const GENERIC_FORGOT_MESSAGE =
+  'Si el correo está registrado, recibirás instrucciones para restablecer tu contraseña.';
+
 @Injectable()
-export class PasswordSetupService {
-  private readonly logger = new Logger(PasswordSetupService.name);
+export class PasswordResetService {
+  private readonly logger = new Logger(PasswordResetService.name);
 
   constructor(
-    @InjectRepository(PasswordSetupToken)
-    private readonly tokenRepository: Repository<PasswordSetupToken>,
+    @InjectRepository(PasswordResetToken)
+    private readonly tokenRepository: Repository<PasswordResetToken>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
-    private readonly accountActivationService: AccountActivationService,
+    private readonly passwordResetMailService: PasswordResetMailService,
+    private readonly passwordSetupService: PasswordSetupService,
     private readonly configService: ConfigService,
     private readonly userSessionService: UserSessionService,
   ) {}
 
-  async createAndSendActivationEmail(
-    userId: number,
-    orderId?: number,
-  ): Promise<void> {
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
+  async requestReset(email: string): Promise<{ message: string }> {
+    const normalizedEmail = email.trim();
+    const user = await this.usersRepository.findOne({
+      where: { email: normalizedEmail },
+      relations: ['roles'],
+    });
 
     if (!user) {
-      this.logger.warn(`Usuario ${userId} no encontrado; activación omitida`);
-      return;
+      return { message: GENERIC_FORGOT_MESSAGE };
     }
 
-    if (!user.password_not_set) {
-      this.logger.debug(`Usuario ${userId} ya tiene contraseña; activación omitida`);
-      return;
-    }
-
-    const rawToken = await this.createTokenForUser(user.id);
-    await this.accountActivationService.sendSetPasswordEmail(
-      user.email,
-      user.name,
-      rawToken,
-      orderId,
-    );
-  }
-
-  async resendSetPasswordEmail(email: string): Promise<{ message: string }> {
-    const user = await this.usersRepository.findOneBy({ email });
-
-    if (!user?.password_not_set) {
-      return {
-        message:
-          'Si tu cuenta requiere activación, recibirás un correo con instrucciones.',
-      };
+    if (user.password_not_set) {
+      try {
+        await this.passwordSetupService.resendSetPasswordEmail(normalizedEmail);
+      } catch (error) {
+        if (error instanceof HttpException && error.getStatus() === HttpStatus.TOO_MANY_REQUESTS) {
+          throw error;
+        }
+        this.logger.warn(
+          `No se pudo enviar activación para ${normalizedEmail}: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+      return { message: GENERIC_FORGOT_MESSAGE };
     }
 
     const recentToken = await this.tokenRepository.findOne({
@@ -84,42 +80,28 @@ export class PasswordSetupService {
     }
 
     const rawToken = await this.createTokenForUser(user.id);
-    await this.accountActivationService.sendSetPasswordEmail(
+    await this.passwordResetMailService.sendResetPasswordEmail(
       user.email,
       user.name,
       rawToken,
+      { useAdminFrontend: this.isAdminUser(user) },
     );
 
-    return {
-      message:
-        'Si tu cuenta requiere activación, recibirás un correo con instrucciones.',
-    };
+    return { message: GENERIC_FORGOT_MESSAGE };
   }
 
-  async setPassword(token: string, password: string) {
+  async resetPassword(token: string, password: string) {
     const { user, storedToken } = await this.findValidToken(token);
 
     user.password = await hash(password, Number(process.env.HASH_SALT));
-    user.password_not_set = false;
     await this.usersRepository.save(user);
     await this.userSessionService.invalidateUserSessions(user.id);
 
     storedToken.used_at = new Date();
     await this.tokenRepository.save(storedToken);
 
-    const rolesIds = user.roles?.map((rol) => rol.id) ?? ['CLIENT'];
-
     return {
-      message: 'Contraseña creada correctamente',
-      user: {
-        id: user.id,
-        name: user.name,
-        lastname: user.lastname,
-        email: user.email,
-        phone: user.phone,
-        password_not_set: false,
-        roles: rolesIds,
-      },
+      message: 'Contraseña actualizada correctamente',
     };
   }
 
@@ -146,24 +128,33 @@ export class PasswordSetupService {
 
   private async findValidToken(rawToken: string): Promise<{
     user: User;
-    storedToken: PasswordSetupToken;
+    storedToken: PasswordResetToken;
   }> {
     const tokenHash = this.hashToken(rawToken);
     const storedToken = await this.tokenRepository.findOne({
       where: { token_hash: tokenHash },
-      relations: ['user', 'user.roles'],
+      relations: ['user'],
     });
 
     if (!storedToken || storedToken.used_at) {
-      throw new HttpException('El enlace no es válido o ya fue utilizado', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'El enlace no es válido o ya fue utilizado',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     if (storedToken.expires_at < new Date()) {
-      throw new HttpException('El enlace expiró. Solicita uno nuevo.', HttpStatus.GONE);
+      throw new HttpException(
+        'El enlace expiró. Solicita uno nuevo.',
+        HttpStatus.GONE,
+      );
     }
 
-    if (!storedToken.user?.password_not_set) {
-      throw new HttpException('Esta cuenta ya tiene contraseña', HttpStatus.CONFLICT);
+    if (storedToken.user?.password_not_set) {
+      throw new HttpException(
+        'Esta cuenta aún no tiene contraseña. Revisa tu correo de activación.',
+        HttpStatus.CONFLICT,
+      );
     }
 
     return { user: storedToken.user, storedToken };
@@ -174,8 +165,16 @@ export class PasswordSetupService {
   }
 
   private getTokenTtlHours(): number {
-    const raw = this.configService.get<string>('PASSWORD_SETUP_TOKEN_TTL_HOURS');
-    const parsed = raw ? Number(raw) : 72;
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 72;
+    const raw = this.configService.get<string>('PASSWORD_RESET_TOKEN_TTL_HOURS');
+    const parsed = raw ? Number(raw) : 1;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  }
+
+  private isAdminUser(user: User): boolean {
+    return (
+      user.roles?.some(
+        (role) => role.id === JwtRole.ADMIN || role.id === 'SUPER_ADMIN',
+      ) ?? false
+    );
   }
 }

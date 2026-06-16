@@ -12,7 +12,6 @@ import { Product } from '../products/product.entity';
 import { CartModule } from '../cart/cart.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { Rol } from 'src/roles/rol.entity';
-import { JwtStrategy } from '../auth/jwt/jwt.strategy';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -22,7 +21,7 @@ import { AuthModule } from '../auth/auth.module';
     InventoryModule,
     forwardRef(() => AuthModule),
   ],
-  providers: [OrdersService, CheckoutService, GuestUserProvisioningService, JwtStrategy],
+  providers: [OrdersService, CheckoutService, GuestUserProvisioningService],
   controllers: [OrdersController],
   exports: [OrdersService, CheckoutService, GuestUserProvisioningService],
 })

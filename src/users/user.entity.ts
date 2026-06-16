@@ -34,6 +34,9 @@ export class User {
 
     @Column({ default: false })
     password_not_set: boolean;
+
+    @Column({ default: 0 })
+    token_version: number;
     
     @Column({ nullable: true })
     notification_token: string;

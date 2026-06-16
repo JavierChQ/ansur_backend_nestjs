@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -7,7 +8,12 @@ import { RolesService } from './roles/roles.service';
 
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  if (process.env.NODE_ENV === 'production' || process.env.TRUST_PROXY === 'true') {
+    app.set('trust proxy', 1);
+  }
+
   app.enableCors({
     origin: [
       'https://www.ansur.com.pe',

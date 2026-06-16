@@ -54,6 +54,7 @@ export class AuthService {
             id: userSaved.id,
             name: userSaved.name,
             roles: rolesString,
+            token_version: userSaved.token_version ?? 0,
         };
         const token = this.jwtService.sign(payload);
         const data = {
@@ -101,7 +102,8 @@ export class AuthService {
         const payload = {
             id: userFound.id,
             name: userFound.name,
-            roles: rolesIds
+            roles: rolesIds,
+            token_version: userFound.token_version ?? 0,
         };
         const token = this.jwtService.sign(payload);
         const data = {

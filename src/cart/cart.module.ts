@@ -6,15 +6,16 @@ import { CartService } from './cart.service';
 import { CartController } from './cart.controller';
 import { InventoryModule } from '../inventory/inventory.module';
 import { Product } from '../products/product.entity';
-import { JwtStrategy } from '../auth/jwt/jwt.strategy';
+import { JwtAuthModule } from '../auth/jwt/jwt-auth.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Cart, CartItem, Product]),
     InventoryModule,
+    JwtAuthModule,
   ],
   controllers: [CartController],
-  providers: [CartService, JwtStrategy],
+  providers: [CartService],
   exports: [CartService],
 })
 export class CartModule {}

@@ -6,12 +6,16 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { CHECKOUT_JWT_SUB } from '../../common/constants/checkout-auth.constants';
+import { UserSessionService } from '../user-session.service';
 
 @Injectable()
 export class CheckoutOrJwtAuthGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly userSessionService: UserSessionService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const token = this.extractBearerToken(request.headers.authorization);
 
@@ -26,6 +30,7 @@ export class CheckoutOrJwtAuthGuard implements CanActivate {
       id?: number;
       name?: string;
       roles?: string[];
+      token_version?: number;
     };
 
     try {
@@ -47,6 +52,11 @@ export class CheckoutOrJwtAuthGuard implements CanActivate {
     }
 
     if (payload.id) {
+      await this.userSessionService.assertValidTokenVersion(
+        payload.id,
+        payload.token_version,
+      );
+
       request.user = {
         userId: payload.id,
         username: payload.name,
