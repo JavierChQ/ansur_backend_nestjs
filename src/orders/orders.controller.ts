@@ -1,4 +1,4 @@
-import { Controller, UseGuards, Put, Param, Body, ParseIntPipe, Post, Get, Req, ForbiddenException } from '@nestjs/common';
+import { Controller, UseGuards, Put, Patch, Param, Body, ParseIntPipe, Post, Get, Req, ForbiddenException } from '@nestjs/common';
 import {
   ApiConflictResponse,
   ApiForbiddenResponse,
@@ -19,6 +19,7 @@ import { OrdersService } from './orders.service';
 import { CheckoutService } from './checkout.service';
 import { CheckoutDto } from './dto/checkout.dto';
 import { GuestCheckoutDto } from './dto/guest-checkout.dto';
+import { UpdateCheckoutDeliveryDto } from './dto/update-checkout-delivery.dto';
 import { CheckoutOrderResponseDto } from './dto/swagger/order-response.dto';
 
 @ApiTags('orders')
@@ -86,6 +87,30 @@ export class OrdersController {
     @ApiConflictResponse({ description: 'Stock insuficiente, email o teléfono duplicado' })
     guestCheckout(@Body() dto: GuestCheckoutDto) {
         return this.checkoutService.guestCheckout(dto);
+    }
+
+    @UseGuards(CheckoutOrJwtAuthGuard)
+    @Patch(':orderId/checkout-delivery')
+    @ApiOperation({
+        summary: 'Actualizar tipo de entrega de una orden pendiente',
+        description:
+            'Recalcula el monto y actualiza el snapshot de entrega sin crear una nueva orden. ' +
+            'Requiere JWT de cliente o checkout_token de invitado.',
+    })
+    @ApiParam({ name: 'orderId', example: 45 })
+    @ApiOkResponse({ type: CheckoutOrderResponseDto })
+    @ApiUnauthorizedResponse({ description: 'Token inválido o expirado' })
+    @ApiForbiddenResponse({ description: 'Token no corresponde a la orden' })
+    @ApiConflictResponse({ description: 'La orden ya no está pendiente de pago' })
+    updateCheckoutDelivery(
+        @Req() req: { user?: { userId: number }; checkoutAuth?: CheckoutAuthContext },
+        @Param('orderId', ParseIntPipe) orderId: number,
+        @Body() dto: UpdateCheckoutDeliveryDto,
+    ) {
+        return this.checkoutService.updatePendingCheckoutDelivery(orderId, dto, {
+            userId: req.user?.userId,
+            checkoutAuth: req.checkoutAuth,
+        });
     }
 
     @UseGuards(CheckoutOrJwtAuthGuard)

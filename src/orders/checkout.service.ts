@@ -29,6 +29,7 @@ import {
   GuestDeliveryDto,
   ReceptorTypeDto,
 } from './dto/guest-checkout.dto';
+import { UpdateCheckoutDeliveryDto } from './dto/update-checkout-delivery.dto';
 import { GuestUserProvisioningService } from './guest-user-provisioning.service';
 import { OrderStatus } from './enums/order-status.enum';
 import { Order } from './order.entity';
@@ -128,6 +129,67 @@ export class CheckoutService {
       order: fullOrder,
       checkout_token: `Bearer ${checkoutToken}`,
     };
+  }
+
+  async updatePendingCheckoutDelivery(
+    orderId: number,
+    dto: UpdateCheckoutDeliveryDto,
+    auth: { userId?: number; checkoutAuth?: { orderId: number; email: string } },
+  ) {
+    const order = await this.ordersRepository.findOne({
+      where: { id: orderId },
+      relations: ['orderHasProducts', 'orderHasProducts.product'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Orden no encontrada');
+    }
+
+    if (order.status !== OrderStatus.PENDIENTE_PAGO) {
+      throw new ConflictException('La orden ya no está pendiente de pago');
+    }
+
+    if (order.expires_at && order.expires_at.getTime() < Date.now()) {
+      throw new HttpException('Checkout expirado', HttpStatus.GONE);
+    }
+
+    if (order.is_guest_order) {
+      if (!auth.checkoutAuth || auth.checkoutAuth.orderId !== orderId) {
+        throw new ForbiddenException('El token no corresponde a esta orden');
+      }
+    } else if (!auth.userId || order.id_client !== auth.userId) {
+      throw new ForbiddenException('No puedes modificar esta orden');
+    }
+
+    const productsTotal = (order.orderHasProducts ?? []).reduce(
+      (sum, line) =>
+        sum +
+        Number(line.product?.sale_price ?? line.unit_price ?? 0) * line.quantity,
+      0,
+    );
+
+    const snapshot = this.buildOrderSnapshot(dto.customer, dto.delivery);
+    const amount = productsTotal + this.getDeliveryFee(dto.delivery.type);
+
+    Object.assign(order, snapshot, {
+      amount,
+      ...(dto.id_address != null ? { id_address: dto.id_address } : {}),
+    });
+
+    if (dto.delivery.type !== DeliveryTypeDto.DELIVERY) {
+      order.departamento = null;
+      order.provincia = null;
+      order.distrito = null;
+      order.direccion = null;
+      order.referencia = null;
+    }
+
+    await this.ordersRepository.save(order);
+
+    return this.ordersRepository.findOne({
+      where: { id: order.id },
+      relations: ['orderHasProducts', 'orderHasProducts.product'],
+    });
   }
 
   async claimGuestSession(
