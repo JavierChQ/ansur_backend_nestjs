@@ -6,6 +6,7 @@ import {
   GuestCustomerDto,
   GuestDeliveryDto,
 } from './guest-checkout.dto';
+import { CheckoutInvoiceDto } from './checkout-invoice.dto';
 
 export class CheckoutDto {
   @ApiProperty({
@@ -24,6 +25,11 @@ export class CheckoutDto {
   @ValidateNested()
   @Type(() => GuestDeliveryDto)
   delivery: GuestDeliveryDto;
+
+  @ApiProperty({ type: CheckoutInvoiceDto })
+  @ValidateNested()
+  @Type(() => CheckoutInvoiceDto)
+  invoice: CheckoutInvoiceDto;
 
   @ApiPropertyOptional({
     enum: DeliveryTypeDto,

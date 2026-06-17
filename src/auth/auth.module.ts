@@ -32,6 +32,15 @@ import { ThrottlerModule } from '@nestjs/throttler';
             ttl: Number(configService.get<string>('AUTH_THROTTLE_TTL_MS') ?? 60_000),
             limit: Number(configService.get<string>('AUTH_THROTTLE_LIMIT') ?? 3),
           },
+          {
+            name: 'identity-lookup',
+            ttl: Number(
+              configService.get<string>('IDENTITY_THROTTLE_TTL_MS') ?? 60_000,
+            ),
+            limit: Number(
+              configService.get<string>('IDENTITY_THROTTLE_LIMIT') ?? 30,
+            ),
+          },
         ],
       }),
     }),

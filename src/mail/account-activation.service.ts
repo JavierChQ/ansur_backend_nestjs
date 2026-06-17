@@ -15,14 +15,14 @@ export class AccountActivationService {
     email: string,
     name: string,
     rawToken: string,
-    orderId?: number,
+    orderReference?: string,
   ): Promise<void> {
     const frontendUrl = this.getFrontendUrl();
     const companyName = this.configService.get<string>('COMPANY_NAME') ?? 'Ansur';
     const ttlHours = this.getTokenTtlHours();
     const setupUrl = `${frontendUrl}/establecer-contrasena?token=${encodeURIComponent(rawToken)}`;
-    const orderLine = orderId
-      ? `<p style="margin:4px 0;">Tu compra <strong>#${orderId}</strong> fue confirmada.</p>`
+    const orderLine = orderReference
+      ? `<p style="margin:4px 0;">Tu pedido <strong>${this.escapeHtml(orderReference)}</strong> fue confirmado.</p>`
       : '';
 
     const html = `
@@ -50,8 +50,8 @@ export class AccountActivationService {
 </html>
     `.trim();
 
-    const subject = orderId
-      ? `Activa tu cuenta - Compra #${orderId} - ${companyName}`
+    const subject = orderReference
+      ? `Activa tu cuenta - Pedido ${orderReference} - ${companyName}`
       : `Activa tu cuenta - ${companyName}`;
 
     await this.mailService.sendHtmlEmail(email, subject, html);

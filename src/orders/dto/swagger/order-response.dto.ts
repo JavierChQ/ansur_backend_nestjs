@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class OrderProductLineDto {
   @ApiProperty({ example: 12 })
@@ -38,4 +38,28 @@ export class CheckoutOrderResponseDto {
 
   @ApiProperty({ type: [OrderProductLineDto] })
   orderHasProducts: OrderProductLineDto[];
+
+  @ApiPropertyOptional({ example: 'BOLETA', enum: ['BOLETA', 'FACTURA'] })
+  invoice_type?: string;
+
+  @ApiPropertyOptional({ example: 'DNI', enum: ['DNI', 'RUC'] })
+  invoice_doc_type?: string;
+
+  @ApiPropertyOptional({ example: '12345678' })
+  invoice_doc_number?: string;
+
+  @ApiPropertyOptional({ example: 'JUAN PEREZ QUISPE' })
+  invoice_holder_name?: string;
+
+  @ApiPropertyOptional({ example: 'EMPRESA DEMO SAC' })
+  invoice_business_name?: string;
+
+  @ApiPropertyOptional({ example: 'AV. PRINCIPAL 123 LIMA LIMA LIMA' })
+  invoice_address?: string;
+
+  @ApiPropertyOptional({ example: '2026-06-16T12:00:00.000Z' })
+  invoice_validated_at?: Date;
+
+  @ApiPropertyOptional({ example: 'apisperu' })
+  invoice_validation_source?: string;
 }

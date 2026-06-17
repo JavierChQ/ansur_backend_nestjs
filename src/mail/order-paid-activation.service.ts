@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PasswordSetupService } from '../auth/password-setup.service';
 import { Order } from '../orders/order.entity';
+import { getOrderReferenceCode } from '../orders/order-reference.util';
 
 @Injectable()
 export class OrderPaidActivationService {
@@ -31,7 +32,7 @@ export class OrderPaidActivationService {
 
     await this.passwordSetupService.createAndSendActivationEmail(
       order.id_client,
-      orderId,
+      getOrderReferenceCode(order),
     );
   }
 }

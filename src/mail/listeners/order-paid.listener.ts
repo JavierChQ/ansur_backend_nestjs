@@ -30,7 +30,7 @@ export class OrderPaidListener {
       await this.salesReceiptService.sendReceipt(event.orderId);
     } catch (error) {
       this.logger.error(
-        `No se pudo enviar comprobante para orden ${event.orderId}`,
+        `No se pudo enviar nota de pedido para orden ${event.orderId}`,
         error instanceof Error ? error.stack : String(error),
       );
     }

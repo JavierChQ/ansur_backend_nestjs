@@ -13,6 +13,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { CheckoutInvoiceDto } from './checkout-invoice.dto';
 
 export enum DeliveryTypeDto {
   DELIVERY = 'delivery',
@@ -155,4 +156,9 @@ export class GuestCheckoutDto {
   @ValidateNested()
   @Type(() => GuestDeliveryDto)
   delivery: GuestDeliveryDto;
+
+  @ApiProperty({ type: CheckoutInvoiceDto })
+  @ValidateNested()
+  @Type(() => CheckoutInvoiceDto)
+  invoice: CheckoutInvoiceDto;
 }

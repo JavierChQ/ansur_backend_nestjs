@@ -30,7 +30,7 @@ export class PasswordSetupService {
 
   async createAndSendActivationEmail(
     userId: number,
-    orderId?: number,
+    orderReference?: string,
   ): Promise<void> {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
 
@@ -49,7 +49,7 @@ export class PasswordSetupService {
       user.email,
       user.name,
       rawToken,
-      orderId,
+      orderReference,
     );
   }
 

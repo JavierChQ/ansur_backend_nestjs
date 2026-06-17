@@ -31,6 +31,7 @@ import {
 } from './dto/guest-checkout.dto';
 import { UpdateCheckoutDeliveryDto } from './dto/update-checkout-delivery.dto';
 import { GuestUserProvisioningService } from './guest-user-provisioning.service';
+import { OrderInvoiceService } from './order-invoice.service';
 import { OrderStatus } from './enums/order-status.enum';
 import { Order } from './order.entity';
 import { createUniqueOrderReferenceCode } from './order-reference.util';
@@ -54,6 +55,7 @@ export class CheckoutService {
     private cartService: CartService,
     private inventoryService: InventoryService,
     private guestUserProvisioning: GuestUserProvisioningService,
+    private orderInvoiceService: OrderInvoiceService,
     private jwtService: JwtService,
     private dataSource: DataSource,
   ) {}
@@ -70,6 +72,10 @@ export class CheckoutService {
     const amount =
       productsTotal + this.getDeliveryFee(deliveryType);
 
+    const invoiceSnapshot = await this.orderInvoiceService.resolveInvoiceSnapshot(
+      dto.invoice,
+    );
+
     const order = await this.createPendingOrder({
       userId,
       id_address: dto.id_address,
@@ -79,7 +85,10 @@ export class CheckoutService {
         quantity: item.quantity,
         unit_price: item.product.sale_price,
       })),
-      snapshot: this.buildOrderSnapshot(dto.customer, dto.delivery),
+      snapshot: {
+        ...this.buildOrderSnapshot(dto.customer, dto.delivery),
+        ...invoiceSnapshot,
+      },
     });
 
     if (cartId) {
@@ -103,6 +112,10 @@ export class CheckoutService {
     }, 0);
     const amount = productsTotal + this.getDeliveryFee(dto.delivery.type);
 
+    const invoiceSnapshot = await this.orderInvoiceService.resolveInvoiceSnapshot(
+      dto.invoice,
+    );
+
     const order = await this.createPendingOrder({
       amount,
       items: dto.items.map((item) => ({
@@ -110,7 +123,10 @@ export class CheckoutService {
         quantity: item.quantity,
         unit_price: products.get(item.id_product)?.sale_price ?? 0,
       })),
-      snapshot: this.buildOrderSnapshot(dto.customer, dto.delivery),
+      snapshot: {
+        ...this.buildOrderSnapshot(dto.customer, dto.delivery),
+        ...invoiceSnapshot,
+      },
       is_guest_order: true,
     });
 

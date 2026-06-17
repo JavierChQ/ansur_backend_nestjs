@@ -29,31 +29,31 @@ export class SalesReceiptService {
     });
 
     if (!order) {
-      this.logger.warn(`Orden ${orderId} no encontrada; comprobante omitido.`);
+      this.logger.warn(`Orden ${orderId} no encontrada; nota de pedido omitida.`);
       return;
     }
 
     if (order.receipt_sent_at) {
-      this.logger.log(`Comprobante de orden ${orderId} ya enviado; omitiendo duplicado.`);
+      this.logger.log(`Nota de pedido de orden ${orderId} ya enviada; omitiendo duplicado.`);
       return;
     }
 
     const recipientEmail = order.user?.email ?? order.customer_email;
     if (!recipientEmail) {
-      this.logger.warn(`Orden ${orderId} sin email; comprobante omitido.`);
+      this.logger.warn(`Orden ${orderId} sin email; nota de pedido omitida.`);
       return;
     }
 
     const orderReference = getOrderReferenceCode(order);
     const html = this.buildReceiptHtml(order, orderReference);
-    const subject = `Comprobante de compra ${orderReference} - ${this.getCompanyName()}`;
+    const subject = `Nota de pedido ${orderReference} - ${this.getCompanyName()}`;
 
     await this.mailService.sendHtmlEmail(recipientEmail, subject, html);
 
     order.receipt_sent_at = new Date();
     await this.ordersRepository.save(order);
 
-    this.logger.log(`Comprobante enviado para orden ${orderId} → ${recipientEmail}`);
+    this.logger.log(`Nota de pedido enviada para orden ${orderId} → ${recipientEmail}`);
   }
 
   private getCompanyName(): string {
@@ -104,13 +104,14 @@ export class SalesReceiptService {
 
     const customerEmail = order.customer_email ?? order.user?.email ?? '—';
     const deliverySummary = this.buildDeliverySummary(order);
+    const invoiceSummaryHtml = this.buildInvoiceSummaryHtml(order);
 
     return `
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Comprobante ${orderReference}</title>
+  <title>Nota de pedido ${orderReference}</title>
 </head>
 <body style="font-family:Arial,sans-serif;color:#222;line-height:1.5;max-width:640px;margin:0 auto;padding:24px;">
   <h1 style="color:#1a1a1a;margin-bottom:4px;">${this.escapeHtml(companyName)}</h1>
@@ -119,14 +120,15 @@ export class SalesReceiptService {
 
   <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
 
-  <h2 style="margin-top:0;">Comprobante de compra</h2>
-  <p style="margin:4px 0;"><strong>ID de pedido:</strong> ${orderReference}</p>
+  <h2 style="margin-top:0;">Nota de pedido</h2>
+  <p style="margin:4px 0;"><strong>Código de pedido:</strong> ${orderReference}</p>
   <p style="margin:4px 0;"><strong>Fecha:</strong> ${orderDate}</p>
   <p style="margin:4px 0;"><strong>Cliente:</strong> ${this.escapeHtml(customerName)}</p>
   <p style="margin:4px 0;"><strong>Correo:</strong> ${this.escapeHtml(customerEmail)}</p>
   <p style="margin:4px 0;"><strong>Entrega:</strong> ${this.escapeHtml(deliverySummary)}</p>
   ${order.payment_id ? `<p style="margin:4px 0;"><strong>Pago Mercado Pago:</strong> ${this.escapeHtml(order.payment_id)}</p>` : ''}
 
+  ${invoiceSummaryHtml}
   <table style="width:100%;border-collapse:collapse;margin:24px 0;font-size:14px;">
     <thead>
       <tr style="background:#f5f5f5;">
@@ -159,11 +161,42 @@ export class SalesReceiptService {
   </table>
 
   <p style="margin-top:32px;font-size:12px;color:#666;">
-    Este documento es un comprobante comercial de tu compra en ${this.escapeHtml(companyName)}.
-    Los precios incluyen IGV. No constituye comprobante de pago electrónico timbrado ante SUNAT.
+    Este documento es una nota de pedido de tu compra en ${this.escapeHtml(companyName)}.
+    Los precios incluyen IGV. No constituye boleta ni factura electrónica timbrada ante SUNAT.
+    Tu comprobante de pago se emitirá en nuestra tienda física al retirar tu pedido o al preparar tu envío.
   </p>
 </body>
 </html>
+    `.trim();
+  }
+
+  private buildInvoiceSummaryHtml(order: Order): string {
+    if (!order.invoice_type || !order.invoice_doc_number) {
+      return '';
+    }
+
+    const typeLabel = order.invoice_type === 'FACTURA' ? 'Factura' : 'Boleta';
+    const documentLine = `${order.invoice_doc_type ?? (order.invoice_type === 'FACTURA' ? 'RUC' : 'DNI')} ${order.invoice_doc_number}`;
+
+    let holderBlock = '';
+    if (order.invoice_type === 'FACTURA') {
+      holderBlock = `
+        <p style="margin:4px 0;"><strong>Razón social:</strong> ${this.escapeHtml(order.invoice_business_name ?? '—')}</p>
+        <p style="margin:4px 0;"><strong>Domicilio fiscal:</strong> ${this.escapeHtml(order.invoice_address ?? '—')}</p>
+      `;
+    } else {
+      holderBlock = `
+        <p style="margin:4px 0;"><strong>Titular:</strong> ${this.escapeHtml(order.invoice_holder_name ?? '—')}</p>
+      `;
+    }
+
+    return `
+  <div style="margin:20px 0;padding:16px;background:#fffbeb;border:1px solid #f0d58a;border-radius:8px;">
+    <h3 style="margin:0 0 8px;font-size:16px;">Datos para tu comprobante</h3>
+    <p style="margin:4px 0;"><strong>Tipo solicitado:</strong> ${this.escapeHtml(typeLabel)}</p>
+    <p style="margin:4px 0;"><strong>Documento:</strong> ${this.escapeHtml(documentLine)}</p>
+    ${holderBlock}
+  </div>
     `.trim();
   }
 

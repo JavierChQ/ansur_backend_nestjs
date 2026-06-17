@@ -16,6 +16,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { InventoryModule } from './inventory/inventory.module';
 import { CartModule } from './cart/cart.module';
 import { MailModule } from './mail/mail.module';
+import { IdentityModule } from './identity/identity.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { MailModule } from './mail/mail.module';
     InventoryModule,
     CartModule,
     MailModule,
+    IdentityModule,
   ],
   controllers: [AppController],
   providers: [AppService],

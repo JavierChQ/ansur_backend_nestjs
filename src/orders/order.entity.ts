@@ -91,6 +91,30 @@ export class Order {
     @Column({ type: 'varchar', length: 50, nullable: true })
     receptor_doc_number: string;
 
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    invoice_type: string;
+
+    @Column({ type: 'varchar', length: 10, nullable: true })
+    invoice_doc_type: string;
+
+    @Column({ type: 'varchar', length: 50, nullable: true })
+    invoice_doc_number: string;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    invoice_holder_name: string;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    invoice_business_name: string;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    invoice_address: string;
+
+    @Column({ type: 'datetime', nullable: true })
+    invoice_validated_at: Date;
+
+    @Column({ type: 'varchar', length: 50, nullable: true })
+    invoice_validation_source: string;
+
     @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
     
