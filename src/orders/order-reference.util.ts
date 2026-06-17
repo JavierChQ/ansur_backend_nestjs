@@ -2,19 +2,40 @@ import { randomInt } from 'crypto';
 import { EntityManager } from 'typeorm';
 import { Order } from './order.entity';
 
-const REFERENCE_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const REFERENCE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const REFERENCE_DIGITS = '23456789';
+const REFERENCE_CHARSET = `${REFERENCE_LETTERS}${REFERENCE_DIGITS}`;
 const REFERENCE_LENGTH = 6;
 
 export function generateOrderReferenceCode(): string {
-  let code = '';
-  for (let index = 0; index < REFERENCE_LENGTH; index++) {
-    code += REFERENCE_CHARSET[randomInt(REFERENCE_CHARSET.length)];
+  const chars: string[] = [
+    REFERENCE_LETTERS[randomInt(REFERENCE_LETTERS.length)],
+    REFERENCE_DIGITS[randomInt(REFERENCE_DIGITS.length)],
+  ];
+
+  for (let index = chars.length; index < REFERENCE_LENGTH; index++) {
+    chars.push(REFERENCE_CHARSET[randomInt(REFERENCE_CHARSET.length)]);
   }
-  return code;
+
+  for (let index = chars.length - 1; index > 0; index--) {
+    const swapIndex = randomInt(index + 1);
+    [chars[index], chars[swapIndex]] = [chars[swapIndex], chars[index]];
+  }
+
+  return chars.join('');
 }
 
 export function getOrderReferenceCode(order: Pick<Order, 'reference_code' | 'id'>): string {
-  return order.reference_code ?? String(order.id);
+  const code = order.reference_code?.trim();
+  if (code) {
+    return code.toUpperCase();
+  }
+
+  return String(order.id);
+}
+
+export function isAlphanumericOrderReference(code: string): boolean {
+  return /^[A-Z0-9]{6}$/.test(code) && /[A-Z]/.test(code) && /\d/.test(code);
 }
 
 export async function createUniqueOrderReferenceCode(

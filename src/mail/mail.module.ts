@@ -9,6 +9,9 @@ import { OrderPaidActivationService } from './order-paid-activation.service';
 import { OrderPaidListener } from './listeners/order-paid.listener';
 import { OrdersModule } from '../orders/orders.module';
 import { AuthModule } from '../auth/auth.module';
+import { OrderReceiptBuilder } from './order-receipt/order-receipt.builder';
+import { OrderReceiptHtmlRenderer } from './order-receipt/order-receipt-html.renderer';
+import { OrderReceiptPdfGenerator } from './order-receipt/order-receipt-pdf.generator';
 
 @Module({
   imports: [
@@ -23,6 +26,9 @@ import { AuthModule } from '../auth/auth.module';
     PasswordResetMailService,
     OrderPaidActivationService,
     OrderPaidListener,
+    OrderReceiptBuilder,
+    OrderReceiptHtmlRenderer,
+    OrderReceiptPdfGenerator,
   ],
   exports: [MailService, SalesReceiptService, AccountActivationService, PasswordResetMailService],
 })
