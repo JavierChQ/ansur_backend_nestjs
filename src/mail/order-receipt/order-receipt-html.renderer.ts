@@ -73,7 +73,6 @@ export class OrderReceiptHtmlRenderer {
     <h3 style="margin:0 0 12px;font-size:15px;color:#333;">Datos de entrega</h3>
     <p style="margin:4px 0;"><strong>Tipo de envío:</strong> ${escapeHtml(view.deliveryTypeLabel)}</p>
     <p style="margin:4px 0;"><strong>Dirección:</strong> ${escapeHtml(view.deliveryAddress)}</p>
-    <p style="margin:4px 0;"><strong>Ubigeo:</strong> ${escapeHtml(view.deliveryUbigeo)}</p>
     <p style="margin:4px 0;"><strong>Contacto:</strong> ${escapeHtml(view.deliveryContact)}</p>
   </div>
 
