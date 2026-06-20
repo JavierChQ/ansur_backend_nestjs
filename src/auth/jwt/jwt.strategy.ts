@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
 import { jwtConstants } from './jwt.constants';
 import { UserSessionService } from '../user-session.service';
+import { AuthTokenPayload } from '../auth-token.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -14,21 +15,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: {
-    id: number;
-    name: string;
-    roles: string[];
-    token_version?: number;
-  }) {
+  async validate(payload: AuthTokenPayload) {
     await this.userSessionService.assertValidTokenVersion(
       payload.id,
       payload.token_version,
     );
 
+    const role = payload.role ?? payload.roles?.[0] ?? 'CLIENT';
+    const roles = payload.roles?.length ? payload.roles : [role];
+
     return {
       userId: payload.id,
       username: payload.name,
-      roles: payload.roles,
+      role,
+      roles,
+      permissions: payload.permissions ?? [],
     };
   }
 }

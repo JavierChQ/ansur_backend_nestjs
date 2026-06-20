@@ -17,11 +17,11 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
-import { HasRoles } from '../auth/jwt/has-roles';
-import { JwtRole } from '../auth/jwt/jwt-role';
 import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
-import { JwtRolesGuard } from '../auth/jwt/jwt-roles.guard';
+import { PermissionsGuard } from '../auth/jwt/permissions.guard';
+import { RequirePermissions } from '../auth/jwt/require-permissions';
 import { ApiProtected } from '../common/decorators/api-protected.decorator';
+import { PermissionCode } from '../permissions/permissions.constants';
 import { CartService } from './cart.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { CartResponseDto } from './dto/swagger/cart-response.dto';
@@ -32,8 +32,8 @@ import { CartResponseDto } from './dto/swagger/cart-response.dto';
 export class CartController {
   constructor(private cartService: CartService) {}
 
-  @HasRoles(JwtRole.CLIENT, JwtRole.ADMIN)
-  @UseGuards(JwtAuthGuard, JwtRolesGuard)
+  @RequirePermissions(PermissionCode.SHOP_CART)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Get()
   @ApiOperation({
     summary: 'Obtener carrito activo del usuario',
@@ -44,8 +44,8 @@ export class CartController {
     return this.cartService.getCart(req.user.userId);
   }
 
-  @HasRoles(JwtRole.CLIENT, JwtRole.ADMIN)
-  @UseGuards(JwtAuthGuard, JwtRolesGuard)
+  @RequirePermissions(PermissionCode.SHOP_CART)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Post('items')
   @ApiOperation({
     summary: 'Añadir o actualizar ítem en el carrito',
@@ -61,8 +61,8 @@ export class CartController {
     return this.cartService.addOrUpdateItem(req.user.userId, dto);
   }
 
-  @HasRoles(JwtRole.CLIENT, JwtRole.ADMIN)
-  @UseGuards(JwtAuthGuard, JwtRolesGuard)
+  @RequirePermissions(PermissionCode.SHOP_CART)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Delete('items/:productId')
   @ApiOperation({ summary: 'Eliminar un producto del carrito' })
   @ApiParam({ name: 'productId', example: 12 })

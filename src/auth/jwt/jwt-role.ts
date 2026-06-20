@@ -1,4 +1,1 @@
-export enum JwtRole {
-    CLIENT = 'CLIENT',
-    ADMIN = 'ADMIN',
-}
+export { AppRole, AppRole as JwtRole, ADMIN_PANEL_ROLES } from './app-role';

@@ -9,6 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
+import { AuthTokenService } from '../auth/auth-token.service';
 import { AUTH_ERROR_CODES } from '../common/constants/auth-error-codes.constants';
 import { CHECKOUT_JWT_SUB } from '../common/constants/checkout-auth.constants';
 import {
@@ -57,6 +58,7 @@ export class CheckoutService {
     private guestUserProvisioning: GuestUserProvisioningService,
     private orderInvoiceService: OrderInvoiceService,
     private jwtService: JwtService,
+    private authTokenService: AuthTokenService,
     private dataSource: DataSource,
   ) {}
 
@@ -236,18 +238,11 @@ export class CheckoutService {
       throw new NotFoundException('No se pudo vincular la cuenta a la orden');
     }
 
-    const rolesIds = user.roles?.map((rol) => rol.id) ?? ['CLIENT'];
-    const token = this.jwtService.sign({
-      id: user.id,
-      name: user.name,
-      roles: rolesIds,
-    });
-
-    const { password, ...safeUser } = user;
+    const session = await this.authTokenService.buildSessionResponse(user);
 
     return {
-      token: `Bearer ${token}`,
-      user: safeUser,
+      token: session.token,
+      user: session.user,
       password_not_set: user.password_not_set,
     };
   }

@@ -5,6 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as fs from 'fs';
 import { RolesService } from './roles/roles.service';
+import { PermissionsService } from './permissions/permissions.service';
 
 
 async function bootstrap() {
@@ -36,6 +37,9 @@ async function bootstrap() {
   // Esto asegura que ADMIN y CLIENT existan en la tabla de roles al arrancar.
   const rolesService = app.get(RolesService);
   await rolesService.seedDefaultRoles();
+
+  const permissionsService = app.get(PermissionsService);
+  await permissionsService.seedPermissionsAndRoleMappings();
 
   const config = new DocumentBuilder()
   .setTitle('Ansur backend')

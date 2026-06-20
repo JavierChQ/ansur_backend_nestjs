@@ -1,12 +1,12 @@
-import { Controller, UseGuards, Put, UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator, Param, Body, ParseIntPipe, Post, Get, Delete } from '@nestjs/common';
-import { HasRoles } from '../auth/jwt/has-roles';
-import { JwtRole } from '../auth/jwt/jwt-role';
+import { Controller, UseGuards, Put, Param, Body, ParseIntPipe, Post, Get, Delete } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
-import { JwtRolesGuard } from '../auth/jwt/jwt-roles.guard';
+import { PermissionsGuard } from '../auth/jwt/permissions.guard';
+import { RequirePermissions } from '../auth/jwt/require-permissions';
 import { AddressService } from './address.service';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 import { ApiTags } from '@nestjs/swagger';
+import { PermissionCode } from '../permissions/permissions.constants';
 
 @ApiTags('address')
 @Controller('address')
@@ -14,36 +14,36 @@ export class AddressController {
 
     constructor(private addressService: AddressService) {}
 
-    @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_ADDRESS)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Post()
     create(@Body() address: CreateAddressDto) {
         return this.addressService.create(address);
     }
     
-    @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_ADDRESS)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Get()
     findAll() {
         return this.addressService.findAll();
     }
     
-    @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_ADDRESS)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Get('user/:id_user')
     findByUser(@Param('id_user', ParseIntPipe) id_user: number) {
         return this.addressService.findByUser(id_user);
     }
 
-    @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_ADDRESS)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Put(':id')
     update(@Param('id', ParseIntPipe) id: number, @Body() address: UpdateAddressDto) {
         return this.addressService.update(id, address);
     }
     
-    @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_ADDRESS)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Delete(':id')
     delete(@Param('id', ParseIntPipe) id: number) {
         return this.addressService.delete(id);

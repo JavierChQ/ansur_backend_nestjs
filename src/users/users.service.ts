@@ -7,6 +7,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ConfigService } from '@nestjs/config';
 import {v2 as cloudinary} from 'cloudinary';
 import { configureCloudinary } from '../cloudinary/cloudinary.config';
+import { AppRole } from '../auth/jwt/app-role';
+import { RoleAssignmentService } from '../permissions/role-assignment.service';
 
 
 @Injectable()
@@ -16,6 +18,7 @@ export class UsersService {
         @InjectRepository(User) 
         private usersRepository: Repository<User>,
         private configService: ConfigService,
+        private roleAssignmentService: RoleAssignmentService,
     ) {
         configureCloudinary(this.configService);
     }
@@ -36,7 +39,7 @@ export class UsersService {
         });
 
         return users
-            .filter((user) => user.roles?.some((role) => role.id === 'CLIENT'))
+            .filter((user) => this.roleAssignmentService.getSingleRoleId(user) === AppRole.CLIENT)
             .map((user) => {
                 const { password, ...safeUser } = user;
                 return safeUser;

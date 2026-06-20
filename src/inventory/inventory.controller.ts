@@ -19,10 +19,10 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { HasRoles } from '../auth/jwt/has-roles';
-import { JwtRole } from '../auth/jwt/jwt-role';
 import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
-import { JwtRolesGuard } from '../auth/jwt/jwt-roles.guard';
+import { PermissionsGuard } from '../auth/jwt/permissions.guard';
+import { RequirePermissions } from '../auth/jwt/require-permissions';
+import { PermissionCode } from '../permissions/permissions.constants';
 import { ApiProtected } from '../common/decorators/api-protected.decorator';
 import { InventoryService } from './inventory.service';
 import { RestockDto } from './dto/restock.dto';
@@ -41,8 +41,8 @@ import {
 export class InventoryController {
   constructor(private inventoryService: InventoryService) {}
 
-  @HasRoles(JwtRole.ADMIN)
-  @UseGuards(JwtAuthGuard, JwtRolesGuard)
+  @RequirePermissions(PermissionCode.ADMIN_INVENTORY_MANAGE)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Get('inventory')
   @ApiOperation({ summary: 'Listar inventario completo con alertas de stock' })
   @ApiOkResponse({ type: [InventoryAdminResponseDto] })
@@ -50,8 +50,8 @@ export class InventoryController {
     return this.inventoryService.findAllAdmin();
   }
 
-  @HasRoles(JwtRole.ADMIN)
-  @UseGuards(JwtAuthGuard, JwtRolesGuard)
+  @RequirePermissions(PermissionCode.ADMIN_INVENTORY_MANAGE)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Get('inventory/low-stock')
   @ApiOperation({ summary: 'Productos con stock disponible en o por debajo del mínimo' })
   @ApiOkResponse({ type: [InventoryAdminResponseDto] })
@@ -59,8 +59,8 @@ export class InventoryController {
     return this.inventoryService.findLowStock();
   }
 
-  @HasRoles(JwtRole.ADMIN)
-  @UseGuards(JwtAuthGuard, JwtRolesGuard)
+  @RequirePermissions(PermissionCode.ADMIN_INVENTORY_MANAGE)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Get('inventory/:productId')
   @ApiOperation({ summary: 'Detalle de inventario de un producto' })
   @ApiParam({ name: 'productId', example: 12 })
@@ -80,8 +80,8 @@ export class InventoryController {
     }));
   }
 
-  @HasRoles(JwtRole.ADMIN)
-  @UseGuards(JwtAuthGuard, JwtRolesGuard)
+  @RequirePermissions(PermissionCode.ADMIN_INVENTORY_MANAGE)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Post('inventory/:productId/restock')
   @ApiOperation({ summary: 'Ingresar mercadería al almacén' })
   @ApiParam({ name: 'productId', example: 12 })
@@ -95,8 +95,8 @@ export class InventoryController {
     return this.inventoryService.restock(productId, dto, req.user.userId);
   }
 
-  @HasRoles(JwtRole.ADMIN)
-  @UseGuards(JwtAuthGuard, JwtRolesGuard)
+  @RequirePermissions(PermissionCode.ADMIN_INVENTORY_MANAGE)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Patch('inventory/:productId/min-stock')
   @ApiOperation({ summary: 'Configurar umbral de stock mínimo para alertas' })
   @ApiParam({ name: 'productId', example: 12 })
@@ -108,8 +108,8 @@ export class InventoryController {
     return this.inventoryService.updateMinStock(productId, dto.min_stock);
   }
 
-  @HasRoles(JwtRole.ADMIN)
-  @UseGuards(JwtAuthGuard, JwtRolesGuard)
+  @RequirePermissions(PermissionCode.ADMIN_INVENTORY_MANAGE)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Post('inventory/:productId/adjust')
   @ApiOperation({ summary: 'Ajuste manual de stock con motivo obligatorio' })
   @ApiParam({ name: 'productId', example: 12 })
@@ -123,8 +123,8 @@ export class InventoryController {
     return this.inventoryService.adjust(productId, dto, req.user.userId);
   }
 
-  @HasRoles(JwtRole.ADMIN)
-  @UseGuards(JwtAuthGuard, JwtRolesGuard)
+  @RequirePermissions(PermissionCode.ADMIN_INVENTORY_MANAGE)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Get('stock-movements')
   @ApiOperation({ summary: 'Historial de movimientos de stock (auditoría)' })
   @ApiQuery({ name: 'id_product', required: false, example: 12 })
@@ -143,8 +143,8 @@ export class InventoryController {
     });
   }
 
-  @HasRoles(JwtRole.ADMIN)
-  @UseGuards(JwtAuthGuard, JwtRolesGuard)
+  @RequirePermissions(PermissionCode.ADMIN_INVENTORY_MANAGE)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Get('dashboard/stock-summary')
   @ApiOperation({ summary: 'Resumen de KPIs de inventario para el panel admin' })
   @ApiOkResponse({ type: StockSummaryResponseDto })

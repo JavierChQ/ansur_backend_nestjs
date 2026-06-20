@@ -1,9 +1,9 @@
 import { Body, Controller, Delete, Get, Param, ParseFilePipe, ParseIntPipe, Post, Put, Req, UploadedFiles, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ProductsService } from "./products.service";
-import { HasRoles } from "src/auth/jwt/has-roles";
-import { JwtRole } from "src/auth/jwt/jwt-role";
 import { JwtAuthGuard } from "src/auth/jwt/jwt-auth.guard";
-import { JwtRolesGuard } from "src/auth/jwt/jwt-roles.guard";
+import { PermissionsGuard } from "src/auth/jwt/permissions.guard";
+import { RequirePermissions } from "src/auth/jwt/require-permissions";
+import { PermissionCode } from "../permissions/permissions.constants";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
@@ -116,8 +116,8 @@ export class ProductsController {
         return this.productsService.findById(id, req.user);
     }
 
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_PRODUCTS_MANAGE)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @ApiProtected()
     @Post()
     @ApiOperation({
@@ -157,8 +157,8 @@ export class ProductsController {
         return this.productsService.create(files, product);
     }
     
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_PRODUCTS_MANAGE)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Put('upload/:id') // http:localhost:3000/categories -> PUT
     @UseInterceptors(FilesInterceptor('files[]', 2, {storage}))
     updateWithImage(
@@ -175,8 +175,8 @@ export class ProductsController {
         return this.productsService.updateWithImages(files, id, product);
     }
     
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_PRODUCTS_MANAGE)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Put(':id') // http:localhost:3000/categories -> PUT
     update(
         @Param('id', ParseIntPipe) id: number,
@@ -185,8 +185,8 @@ export class ProductsController {
         return this.productsService.update(id, product);
     }
     
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_PRODUCTS_MANAGE)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Delete(':id') // http:localhost:3000/categories -> PUT
     delete(
         @Param('id', ParseIntPipe) id: number,

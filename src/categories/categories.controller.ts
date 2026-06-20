@@ -1,8 +1,7 @@
-import { Controller, UseGuards, Put, UseInterceptors, UploadedFile, ParseFilePipe, Param, Body, ParseIntPipe, Post, Get, Delete } from '@nestjs/common';
-import { HasRoles } from '../auth/jwt/has-roles';
-import { JwtRole } from '../auth/jwt/jwt-role';
+import { Controller, UseGuards, Param, Body, ParseIntPipe, Post, Get, Delete, Put, UseInterceptors, UploadedFile, ParseFilePipe } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
-import { JwtRolesGuard } from '../auth/jwt/jwt-roles.guard';
+import { PermissionsGuard } from '../auth/jwt/permissions.guard';
+import { RequirePermissions } from '../auth/jwt/require-permissions';
 import { CategoriesService } from './categories.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -11,6 +10,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import {v2 as cloudinary} from 'cloudinary';
 import { imageFileValidators } from '../common/validators/image-file.validators';
+import { PermissionCode } from '../permissions/permissions.constants';
 
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
@@ -32,8 +32,8 @@ export class CategoriesController {
         return this.CategoriesService.findById(id);
     }
 
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_CATEGORIES_MANAGE)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Post()
     @UseInterceptors(FileInterceptor('file', {storage}))
     createWithImage(
@@ -47,8 +47,8 @@ export class CategoriesController {
         return this.CategoriesService.create(file,category);
     }
     
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_CATEGORIES_MANAGE)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Put('upload/:id')
     @UseInterceptors(FileInterceptor('file', {storage}))
     updateWithImage(
@@ -63,15 +63,15 @@ export class CategoriesController {
         return this.CategoriesService.updateWithImage(file, id, category);
     }
 
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_CATEGORIES_MANAGE)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Put(':id')
     update( @Param('id', ParseIntPipe) id: number, @Body() category: UpdateCategoryDto) {
         return this.CategoriesService.update(id, category);
     }
 
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_CATEGORIES_MANAGE)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Delete(':id')
     delete(@Param('id', ParseIntPipe) id: number) {
         return this.CategoriesService.delete(id);

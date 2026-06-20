@@ -6,6 +6,7 @@ import { User } from 'src/users/user.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtAuthModule } from './jwt/jwt-auth.module';
 import { CheckoutOrJwtAuthGuard } from './jwt/checkout-or-jwt-auth.guard';
+import { PermissionsGuard } from './jwt/permissions.guard';
 import { RolesService } from 'src/roles/roles.service';
 import { Rol } from 'src/roles/rol.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -16,10 +17,13 @@ import { PasswordResetService } from './password-reset.service';
 import { AuthTokensCleanupService } from './auth-tokens-cleanup.service';
 import { MailModule } from '../mail/mail.module';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { PermissionsModule } from '../permissions/permissions.module';
+import { AuthTokenService } from './auth-token.service';
 
 @Module({
   imports: [
     JwtAuthModule,
+    PermissionsModule,
     TypeOrmModule.forFeature([User, Rol, PasswordSetupToken, PasswordResetToken]),
     forwardRef(() => MailModule),
     ThrottlerModule.forRootAsync({
@@ -56,13 +60,22 @@ import { ThrottlerModule } from '@nestjs/throttler';
   ],
   providers: [
     AuthService,
+    AuthTokenService,
     PasswordSetupService,
     PasswordResetService,
     AuthTokensCleanupService,
     RolesService,
     CheckoutOrJwtAuthGuard,
+    PermissionsGuard,
   ],
   controllers: [AuthController],
-  exports: [JwtModule, JwtAuthModule, CheckoutOrJwtAuthGuard, PasswordSetupService],
+  exports: [
+    JwtModule,
+    JwtAuthModule,
+    CheckoutOrJwtAuthGuard,
+    PermissionsGuard,
+    PasswordSetupService,
+    AuthTokenService,
+  ],
 })
 export class AuthModule {}

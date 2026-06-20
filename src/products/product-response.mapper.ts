@@ -1,4 +1,4 @@
-import { JwtRole } from '../auth/jwt/jwt-role';
+import { PermissionCode } from '../permissions/permissions.constants';
 import { Product } from './product.entity';
 
 export const PRICE_BELOW_COST_WARNING =
@@ -6,6 +6,7 @@ export const PRICE_BELOW_COST_WARNING =
 
 export interface ProductRequestUser {
   roles?: string[];
+  permissions?: string[];
 }
 
 export interface ProductWithStock extends Product {
@@ -14,7 +15,9 @@ export interface ProductWithStock extends Product {
 }
 
 export function isAdminUser(user?: ProductRequestUser | null): boolean {
-  return user?.roles?.includes(JwtRole.ADMIN) ?? false;
+  return (
+    user?.permissions?.includes(PermissionCode.ADMIN_PRODUCTS_READ) ?? false
+  );
 }
 
 function toNumber(value: number | string): number {

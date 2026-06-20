@@ -1,13 +1,15 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/users/user.entity';
-import { Repository, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { RegisterAuthDto } from './dto/register-auth.dto';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { compare } from 'bcrypt';
-import { JwtService } from '@nestjs/jwt';
 import { Rol } from 'src/roles/rol.entity';
 import { AUTH_ERROR_CODES } from '../common/constants/auth-error-codes.constants';
+import { AuthTokenService } from './auth-token.service';
+import { AppRole } from './jwt/app-role';
+import { RoleAssignmentService } from '../permissions/role-assignment.service';
 
 @Injectable()
 export class AuthService {
@@ -15,16 +17,15 @@ export class AuthService {
     constructor(
         @InjectRepository(User) private usersRepository: Repository<User>,
         @InjectRepository(Rol) private rolesRepository: Repository<Rol>,
-        private jwtService: JwtService,
+        private readonly authTokenService: AuthTokenService,
+        private readonly roleAssignmentService: RoleAssignmentService,
     ){}
 
     async register(user: RegisterAuthDto){
-
         const { email, phone } = user;
         const emailExist = await this.usersRepository.findOneBy({ email: email })
 
         if (emailExist) {
-            // 409 CONFLICT
             throw new HttpException('El email ya esta registrado', HttpStatus.CONFLICT);
         }
 
@@ -34,41 +35,20 @@ export class AuthService {
             throw new HttpException('El telefono ya esta registrado', HttpStatus.CONFLICT)
         }
 
+        const clientRole = await this.rolesRepository.findOneBy({ id: AppRole.CLIENT });
+
+        if (!clientRole) {
+            throw new HttpException('Rol CLIENT no configurado', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
 
         const newUser = this.usersRepository.create(user);
-        let rolesIds = [];
-        
-        if (user.rolesIds !== undefined && user.rolesIds !== null) { // DATA
-            rolesIds = user.rolesIds;
-        }
-        else {
-            rolesIds.push('CLIENT')
-        }
-        const roles = await this.rolesRepository.findBy({id: In(rolesIds)});
-        newUser.roles = roles;
+        newUser.roles = [clientRole];
 
         const userSaved = await this.usersRepository.save(newUser);
-        const rolesString = userSaved.roles.map(rol => rol.id);
-
-        const payload = {
-            id: userSaved.id,
-            name: userSaved.name,
-            roles: rolesString,
-            token_version: userSaved.token_version ?? 0,
-        };
-        const token = this.jwtService.sign(payload);
-        const data = {
-            user: userSaved,
-            token: 'Bearer ' + token
-        }
-
-        delete data.user.password;
-
-        return data;
+        return this.authTokenService.buildSessionResponse(userSaved);
     }
 
     async login(loginData: LoginAuthDto) {
-
         const { email, password } = loginData;
         const userFound = await this.usersRepository.findOne({
            where: {email: email},
@@ -92,28 +72,11 @@ export class AuthService {
         
         const isPasswordValid = await compare(password, userFound.password);
         if (!isPasswordValid) {
-
-            // 403 FORBITTEN access denied
             throw new HttpException('La contraseña es incorrecta', HttpStatus.FORBIDDEN);
         }
 
-        const rolesIds = userFound.roles.map(rol => rol.id);
-
-        const payload = {
-            id: userFound.id,
-            name: userFound.name,
-            roles: rolesIds,
-            token_version: userFound.token_version ?? 0,
-        };
-        const token = this.jwtService.sign(payload);
-        const data = {
-            user: userFound,
-            token: 'Bearer ' + token
-        }
-
-        delete data.user.password;
-
-        return data;
+        this.roleAssignmentService.getSingleRoleId(userFound);
+        return this.authTokenService.buildSessionResponse(userFound);
     }
 
     async getEmailStatus(email: string) {
@@ -134,5 +97,4 @@ export class AuthService {
     }
 
 }
-
 

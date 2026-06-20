@@ -8,13 +8,13 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { HasRoles } from '../auth/jwt/has-roles';
-import { JwtRole } from '../auth/jwt/jwt-role';
 import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
-import { JwtRolesGuard } from '../auth/jwt/jwt-roles.guard';
+import { PermissionsGuard } from '../auth/jwt/permissions.guard';
+import { RequirePermissions } from '../auth/jwt/require-permissions';
 import { CheckoutOrJwtAuthGuard } from '../auth/jwt/checkout-or-jwt-auth.guard';
 import { ApiProtected } from '../common/decorators/api-protected.decorator';
 import { CheckoutAuthContext } from '../common/constants/checkout-auth.constants';
+import { PermissionCode } from '../permissions/permissions.constants';
 import { OrdersService } from './orders.service';
 import { CheckoutService } from './checkout.service';
 import { CheckoutDto } from './dto/checkout.dto';
@@ -32,8 +32,8 @@ export class OrdersController {
         private checkoutService: CheckoutService,
     ) {}
 
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_ORDERS_READ)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Get('detail/:id')
     @ApiOperation({ summary: 'Detalle de una orden (admin)' })
     @ApiParam({ name: 'id', example: 45 })
@@ -41,25 +41,32 @@ export class OrdersController {
         return this.ordersService.findById(id);
     }
 
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_ORDERS_READ)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Get()
     @ApiOperation({ summary: 'Listar todas las órdenes (admin)' })
     findAll() {
         return this.ordersService.findAll()
     }
     
-    @HasRoles(JwtRole.CLIENT, JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_ORDERS_OWN)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Get(':id_client')
     @ApiOperation({ summary: 'Listar órdenes de un cliente' })
     @ApiParam({ name: 'id_client', example: 1 })
-    findByClient(@Param('id_client', ParseIntPipe) idClient: number) {
+    findByClient(
+        @Req() req: { user: { userId: number } },
+        @Param('id_client', ParseIntPipe) idClient: number,
+    ) {
+        if (req.user.userId !== idClient) {
+            throw new ForbiddenException('No puedes consultar pedidos de otro usuario');
+        }
+
         return this.ordersService.findByClient(idClient);
     }
     
-    @HasRoles(JwtRole.CLIENT, JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_CHECKOUT)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Post('checkout')
     @ApiOperation({
         summary: 'Iniciar checkout desde el carrito',
@@ -136,8 +143,8 @@ export class OrdersController {
         return this.checkoutService.claimGuestSession(orderId, req.checkoutAuth);
     }
 
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_ORDERS_MANAGE)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Put('update-dispatched/:id')
     @ApiOperation({ summary: 'Marcar orden como despachada' })
     @ApiParam({ name: 'id', example: 45 })

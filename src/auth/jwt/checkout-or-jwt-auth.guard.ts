@@ -29,7 +29,9 @@ export class CheckoutOrJwtAuthGuard implements CanActivate {
       email?: string;
       id?: number;
       name?: string;
+      role?: string;
       roles?: string[];
+      permissions?: string[];
       token_version?: number;
     };
 
@@ -60,7 +62,9 @@ export class CheckoutOrJwtAuthGuard implements CanActivate {
       request.user = {
         userId: payload.id,
         username: payload.name,
-        roles: payload.roles ?? [],
+        role: payload.role ?? payload.roles?.[0],
+        roles: payload.roles ?? (payload.role ? [payload.role] : []),
+        permissions: payload.permissions ?? [],
       };
       return true;
     }

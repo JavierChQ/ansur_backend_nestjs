@@ -1,5 +1,6 @@
 import { User } from "src/users/user.entity";
-import { Column, Entity, ManyToMany, PrimaryColumn } from "typeorm";
+import { Permission } from "../permissions/permission.entity";
+import { Column, Entity, JoinTable, ManyToMany, PrimaryColumn } from "typeorm";
 
 @Entity({name: 'roles'})
 export class Rol {
@@ -24,5 +25,13 @@ export class Rol {
 
     @ManyToMany(() => User, (user) => user.roles)
     users: User[];
+
+    @ManyToMany(() => Permission, (permission) => permission.roles)
+    @JoinTable({
+        name: 'role_has_permissions',
+        joinColumn: { name: 'id_rol' },
+        inverseJoinColumn: { name: 'id_permission' },
+    })
+    permissions: Permission[];
 
 }

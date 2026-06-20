@@ -1,18 +1,17 @@
 import { Body, Controller, Delete, Get, Param, ParseFilePipe, ParseIntPipe, Post, Put, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { JwtAuthGuard } from 'src/auth/jwt/jwt-auth.guard';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { JwtRolesGuard } from 'src/auth/jwt/jwt-roles.guard';
-import { JwtRole } from 'src/auth/jwt/jwt-role';
-import { HasRoles } from 'src/auth/jwt/has-roles';
+import { PermissionsGuard } from 'src/auth/jwt/permissions.guard';
+import { RequirePermissions } from 'src/auth/jwt/require-permissions';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import {v2 as cloudinary} from 'cloudinary';
 import { imageFileValidators } from '../common/validators/image-file.validators';
 import { LegacyGuestMigrationService } from './legacy-guest-migration.service';
 import { MigrateLegacyGuestUsersDto } from './dto/migrate-legacy-guest-users.dto';
+import { PermissionCode } from '../permissions/permissions.constants';
 
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
@@ -27,16 +26,16 @@ export class UsersController {
         private legacyGuestMigrationService: LegacyGuestMigrationService,
     ) {}
     
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_CUSTOMERS_READ)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Get()
     @ApiOperation({ summary: 'Listar clientes para panel admin' })
     findAll() {
         return this.usersService.findClientsForAdmin();
     }
 
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.ADMIN_CUSTOMERS_READ)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Post('migrate-legacy-guests')
     @ApiOperation({
         summary: 'Migrar usuarios guest del flujo antiguo',
@@ -52,21 +51,15 @@ export class UsersController {
         });
     }
 
-    
-    @Post() // http://localhost/users -> POST 
-    create(@Body() user: CreateUserDto) {
-        return this.usersService.create(user);
-    }
-
-    @HasRoles(JwtRole.CLIENT)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
-    @Put(':id') // http://192.168.1.15:3000/users/:id -> PUT 
+    @RequirePermissions(PermissionCode.SHOP_PROFILE)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+    @Put(':id')
     update(@Param('id', ParseIntPipe) id: number, @Body() user: UpdateUserDto) {
         return this.usersService.update(id, user);
     }
 
-    @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_PROFILE)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
     @Post('upload/:id')
     @UseInterceptors(FileInterceptor('file', {storage}))
     updateWithImage(
@@ -81,9 +74,9 @@ export class UsersController {
         return this.usersService.updateWithImage(file, id, user);
     }
 
-    @HasRoles(JwtRole.ADMIN)
-    @UseGuards(JwtAuthGuard, JwtRolesGuard)
-    @Delete(':id') // http:localhost:3000/categories -> PUT
+    @RequirePermissions(PermissionCode.ADMIN_USERS_DELETE)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+    @Delete(':id')
     remove(
         @Param('id', ParseIntPipe) id: number,
     ) {

@@ -13,6 +13,7 @@ import { AccountActivationService } from '../mail/account-activation.service';
 import { User } from '../users/user.entity';
 import { PasswordSetupToken } from './entities/password-setup-token.entity';
 import { UserSessionService } from './user-session.service';
+import { isAdminPanelUser } from './jwt/app-role';
 
 @Injectable()
 export class PasswordSetupService {
@@ -32,7 +33,10 @@ export class PasswordSetupService {
     userId: number,
     orderReference?: string,
   ): Promise<void> {
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      relations: ['roles'],
+    });
 
     if (!user) {
       this.logger.warn(`Usuario ${userId} no encontrado; activación omitida`);
@@ -49,12 +53,18 @@ export class PasswordSetupService {
       user.email,
       user.name,
       rawToken,
-      orderReference,
+      {
+        orderReference,
+        useAdminFrontend: isAdminPanelUser(user),
+      },
     );
   }
 
   async resendSetPasswordEmail(email: string): Promise<{ message: string }> {
-    const user = await this.usersRepository.findOneBy({ email });
+    const user = await this.usersRepository.findOne({
+      where: { email },
+      relations: ['roles'],
+    });
 
     if (!user?.password_not_set) {
       return {
@@ -88,6 +98,7 @@ export class PasswordSetupService {
       user.email,
       user.name,
       rawToken,
+      { useAdminFrontend: isAdminPanelUser(user) },
     );
 
     return {

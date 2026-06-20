@@ -9,13 +9,13 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { HasRoles } from '../auth/jwt/has-roles';
-import { JwtRole } from '../auth/jwt/jwt-role';
 import { JwtAuthGuard } from '../auth/jwt/jwt-auth.guard';
-import { JwtRolesGuard } from '../auth/jwt/jwt-roles.guard';
+import { PermissionsGuard } from '../auth/jwt/permissions.guard';
+import { RequirePermissions } from '../auth/jwt/require-permissions';
 import { CheckoutOrJwtAuthGuard } from '../auth/jwt/checkout-or-jwt-auth.guard';
 import { ApiProtected } from '../common/decorators/api-protected.decorator';
 import { PaymentAuthContext } from '../common/constants/checkout-auth.constants';
+import { PermissionCode } from '../permissions/permissions.constants';
 import { MercadoPagoService } from './mercado_pago.service';
 import { CardTokenBody } from '../mercado_pago/models/card_token_body';
 import { PaymentBodyDto } from './dto/payment-body.dto';
@@ -40,8 +40,8 @@ export class MercadoPagoController {
     }
 
     @ApiProtected()
-    @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(CheckoutOrJwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_CHECKOUT)
+    @UseGuards(CheckoutOrJwtAuthGuard, PermissionsGuard)
     @Get('identification_types')
     @ApiOperation({ summary: 'Tipos de identificación aceptados por Mercado Pago' })
     getIdentificationTypes() {
@@ -49,8 +49,8 @@ export class MercadoPagoController {
     }
     
     @ApiProtected()
-    @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(CheckoutOrJwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_CHECKOUT)
+    @UseGuards(CheckoutOrJwtAuthGuard, PermissionsGuard)
     @Get('installments/:first_six_digits/:amount')
     @ApiOperation({ summary: 'Cuotas disponibles según BIN y monto' })
     @ApiParam({ name: 'first_six_digits', example: 450799 })
@@ -63,8 +63,8 @@ export class MercadoPagoController {
     }
     
     @ApiProtected()
-    @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(CheckoutOrJwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_CHECKOUT)
+    @UseGuards(CheckoutOrJwtAuthGuard, PermissionsGuard)
     @Post('card_token')
     @ApiOperation({ summary: 'Generar token de tarjeta para el pago' })
     createCardToken(@Body() cardTokenBody: CardTokenBody) {
@@ -72,8 +72,8 @@ export class MercadoPagoController {
     }
     
     @ApiProtected()
-    @HasRoles(JwtRole.ADMIN, JwtRole.CLIENT)
-    @UseGuards(CheckoutOrJwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_CHECKOUT)
+    @UseGuards(CheckoutOrJwtAuthGuard, PermissionsGuard)
     @Post('payments')
     @ApiOperation({
         summary: 'Procesar pago de una orden existente',
@@ -94,8 +94,8 @@ export class MercadoPagoController {
     }
 
     @ApiProtected()
-    @HasRoles(JwtRole.CLIENT, JwtRole.ADMIN)
-    @UseGuards(CheckoutOrJwtAuthGuard, JwtRolesGuard)
+    @RequirePermissions(PermissionCode.SHOP_CHECKOUT)
+    @UseGuards(CheckoutOrJwtAuthGuard, PermissionsGuard)
     @Get('orders/:orderId/payment-status')
     @ApiOperation({
         summary: 'Estado de pago de una orden',

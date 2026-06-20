@@ -13,7 +13,7 @@ import { PasswordResetMailService } from '../mail/password-reset-mail.service';
 import { User } from '../users/user.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { PasswordSetupService } from './password-setup.service';
-import { JwtRole } from './jwt/jwt-role';
+import { isAdminPanelUser } from './jwt/app-role';
 import { UserSessionService } from './user-session.service';
 
 const GENERIC_FORGOT_MESSAGE =
@@ -171,10 +171,6 @@ export class PasswordResetService {
   }
 
   private isAdminUser(user: User): boolean {
-    return (
-      user.roles?.some(
-        (role) => role.id === JwtRole.ADMIN || role.id === 'SUPER_ADMIN',
-      ) ?? false
-    );
+    return isAdminPanelUser(user);
   }
 }

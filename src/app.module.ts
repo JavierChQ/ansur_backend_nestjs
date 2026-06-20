@@ -17,6 +17,8 @@ import { InventoryModule } from './inventory/inventory.module';
 import { CartModule } from './cart/cart.module';
 import { MailModule } from './mail/mail.module';
 import { IdentityModule } from './identity/identity.module';
+import { AdminUsersModule } from './admin-users/admin-users.module';
+import { PermissionsModule } from './permissions/permissions.module';
 
 @Module({
   imports: [
@@ -59,6 +61,8 @@ import { IdentityModule } from './identity/identity.module';
     CartModule,
     MailModule,
     IdentityModule,
+    PermissionsModule,
+    AdminUsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
