@@ -5,12 +5,10 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PermissionsGuard } from 'src/auth/jwt/permissions.guard';
 import { RequirePermissions } from 'src/auth/jwt/require-permissions';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import {v2 as cloudinary} from 'cloudinary';
 import { imageFileValidators } from '../common/validators/image-file.validators';
-import { LegacyGuestMigrationService } from './legacy-guest-migration.service';
-import { MigrateLegacyGuestUsersDto } from './dto/migrate-legacy-guest-users.dto';
 import { PermissionCode } from '../permissions/permissions.constants';
 
 const storage = new CloudinaryStorage({
@@ -21,10 +19,7 @@ const storage = new CloudinaryStorage({
 @Controller('users')
 export class UsersController {
 
-    constructor(
-        private usersService: UsersService,
-        private legacyGuestMigrationService: LegacyGuestMigrationService,
-    ) {}
+    constructor(private usersService: UsersService) {}
     
     @RequirePermissions(PermissionCode.ADMIN_CUSTOMERS_READ)
     @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -32,23 +27,6 @@ export class UsersController {
     @ApiOperation({ summary: 'Listar clientes para panel admin' })
     findAll() {
         return this.usersService.findClientsForAdmin();
-    }
-
-    @RequirePermissions(PermissionCode.ADMIN_CUSTOMERS_READ)
-    @UseGuards(JwtAuthGuard, PermissionsGuard)
-    @Post('migrate-legacy-guests')
-    @ApiOperation({
-        summary: 'Migrar usuarios guest del flujo antiguo',
-        description:
-            'Marca is_guest y password_not_set en cuentas creadas automáticamente durante checkout legacy.',
-    })
-    @ApiOkResponse({ description: 'Resumen de la migración' })
-    migrateLegacyGuests(@Body() dto: MigrateLegacyGuestUsersDto) {
-        return this.legacyGuestMigrationService.run({
-            dryRun: dto.dryRun ?? true,
-            sendActivationEmails: dto.sendActivationEmails ?? false,
-            proximitySeconds: dto.proximitySeconds,
-        });
     }
 
     @RequirePermissions(PermissionCode.SHOP_PROFILE)
