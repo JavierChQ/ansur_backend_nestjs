@@ -19,6 +19,7 @@ import { MailModule } from './mail/mail.module';
 import { IdentityModule } from './identity/identity.module';
 import { AdminUsersModule } from './admin-users/admin-users.module';
 import { PermissionsModule } from './permissions/permissions.module';
+import { SeedModule } from './seed/seed.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { PermissionsModule } from './permissions/permissions.module';
     IdentityModule,
     PermissionsModule,
     AdminUsersModule,
+    SeedModule,
   ],
   controllers: [AppController],
   providers: [AppService],

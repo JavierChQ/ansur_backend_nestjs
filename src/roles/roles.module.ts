@@ -9,6 +9,7 @@ import { JwtAuthModule } from '../auth/jwt/jwt-auth.module';
 @Module({
   imports: [ TypeOrmModule.forFeature([ Rol, User]), JwtAuthModule ],
   providers: [RolesService],
-  controllers: [RolesController]
+  controllers: [RolesController],
+  exports: [RolesService],
 })
 export class RolesModule {}
