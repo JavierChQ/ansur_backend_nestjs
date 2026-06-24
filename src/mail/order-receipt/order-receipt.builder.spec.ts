@@ -1,4 +1,4 @@
-import { ConfigService } from '@nestjs/config';
+import { CompanyConfigService } from '../../company-config/company-config.service';
 import { Order } from '../../orders/order.entity';
 import { OrderHasProducts } from '../../orders/order_has_products.entity';
 import { Product } from '../../products/product.entity';
@@ -10,21 +10,19 @@ jest.mock('../../orders/order-reference.util', () => ({
 }));
 
 describe('OrderReceiptBuilder', () => {
-  const configService = {
-    get: jest.fn((key: string) => {
-      const values: Record<string, string> = {
-        COMPANY_NAME: 'Ansur',
-        COMPANY_LEGAL_NAME: 'Ansur Perú S.A.C.',
-        COMPANY_RUT: '20600674651',
-        COMPANY_ADDRESS: 'Cal. Garci Carbajal nro 101, int. a-12',
-        COMPANY_WEBSITE: 'https://ansur.com.pe',
-        COMPANY_WHATSAPP: '51947346467',
-      };
-      return values[key];
-    }),
-  } as unknown as ConfigService;
+  const companyConfigService = {
+    getCompany: jest.fn(() => ({
+      name: 'Ansur',
+      legalName: 'Ansur Perú S.A.C.',
+      ruc: '20600674651',
+      address: 'Cal. Garci Carbajal nro 101, int. a-12',
+      website: 'https://ansur.com.pe',
+      whatsapp: '51947346467',
+      whatsappDisplay: '947 346 467',
+    })),
+  } as unknown as CompanyConfigService;
 
-  const builder = new OrderReceiptBuilder(configService);
+  const builder = new OrderReceiptBuilder(companyConfigService);
 
   function createOrder(overrides: Partial<Order> = {}): Order {
     const product = { id: 1, name: 'Producto A', sale_price: 50 } as Product;
@@ -75,6 +73,7 @@ describe('OrderReceiptBuilder', () => {
     expect(view.deliveryFee).toBe(10);
     expect(view.grandTotal).toBe(110);
     expect(view.invoice?.typeLabel).toBe('Boleta');
+    expect(view.company.whatsappDisplay).toBe('947 346 467');
   });
 
   it('usa retiro en tienda cuando delivery_type es pickup', () => {
@@ -90,5 +89,6 @@ describe('OrderReceiptBuilder', () => {
 
     expect(view.deliveryTypeLabel).toBe('Retiro en tienda');
     expect(view.deliveryUbigeo).toBe('—');
+    expect(view.deliveryAddress).toBe('Cal. Garci Carbajal nro 101, int. a-12');
   });
 });

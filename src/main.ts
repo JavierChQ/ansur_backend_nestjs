@@ -67,6 +67,7 @@ async function bootstrap() {
   .addTag('orders', 'Órdenes y checkout')
   .addTag('mercadopago', 'Pagos con Mercado Pago')
   .addTag('identity', 'Consulta DNI/RUC vía ApisPeru')
+  .addTag('config', 'Configuración pública')
   .addTag('admin-inventory', 'Gestión de inventario (solo ADMIN)')
   .build();
   // crea el documento swagger

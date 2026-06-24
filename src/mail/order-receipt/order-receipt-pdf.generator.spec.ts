@@ -1,4 +1,4 @@
-import { ConfigService } from '@nestjs/config';
+import { CompanyConfigService } from '../../company-config/company-config.service';
 import { OrderReceiptBuilder } from './order-receipt.builder';
 import { OrderReceiptPdfGenerator } from './order-receipt-pdf.generator';
 
@@ -8,21 +8,19 @@ jest.mock('../../orders/order-reference.util', () => ({
 }));
 
 describe('OrderReceiptPdfGenerator', () => {
-  const configService = {
-    get: jest.fn((key: string) => {
-      const values: Record<string, string> = {
-        COMPANY_NAME: 'Ansur',
-        COMPANY_LEGAL_NAME: 'Ansur Perú S.A.C.',
-        COMPANY_RUT: '20600674651',
-        COMPANY_ADDRESS: 'Cal. Garci Carbajal nro 101, int. a-12',
-        COMPANY_WEBSITE: 'https://ansur.com.pe',
-        COMPANY_WHATSAPP: '51947346467',
-      };
-      return values[key];
-    }),
-  } as unknown as ConfigService;
+  const companyConfigService = {
+    getCompany: jest.fn(() => ({
+      name: 'Ansur',
+      legalName: 'Ansur Perú S.A.C.',
+      ruc: '20600674651',
+      address: 'Cal. Garci Carbajal nro 101, int. a-12',
+      website: 'https://ansur.com.pe',
+      whatsapp: '51947346467',
+      whatsappDisplay: '947 346 467',
+    })),
+  } as unknown as CompanyConfigService;
 
-  const builder = new OrderReceiptBuilder(configService);
+  const builder = new OrderReceiptBuilder(companyConfigService);
   const generator = new OrderReceiptPdfGenerator();
 
   it('genera un PDF con contenido no vacío', async () => {

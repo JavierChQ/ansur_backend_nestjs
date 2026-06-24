@@ -20,6 +20,7 @@ import { IdentityModule } from './identity/identity.module';
 import { AdminUsersModule } from './admin-users/admin-users.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { SeedModule } from './seed/seed.module';
+import { CompanyConfigModule } from './company-config/company-config.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { SeedModule } from './seed/seed.module';
     PermissionsModule,
     AdminUsersModule,
     SeedModule,
+    CompanyConfigModule,
   ],
   controllers: [AppController],
   providers: [AppService],

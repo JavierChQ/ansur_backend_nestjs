@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Order } from '../../orders/order.entity';
 import { getOrderReferenceCode } from '../../orders/order-reference.util';
+import { CompanyConfigService } from '../../company-config/company-config.service';
 import { formatCurrency, getIgvRate } from '../utils/tax.util';
 import {
   ORDER_RECEIPT_LEGAL_NOTICE,
@@ -12,7 +12,7 @@ import { OrderReceiptInvoice, OrderReceiptView } from './order-receipt.types';
 
 @Injectable()
 export class OrderReceiptBuilder {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly companyConfigService: CompanyConfigService) {}
 
   build(order: Order): OrderReceiptView {
     const igvRate = getIgvRate();
@@ -49,7 +49,7 @@ export class OrderReceiptBuilder {
       subtotalProducts,
       deliveryFee,
       grandTotal,
-      company: this.buildCompany(),
+      company: this.companyConfigService.getCompany(),
       legalNotice: ORDER_RECEIPT_LEGAL_NOTICE,
       igvPercent,
     };
@@ -57,24 +57,6 @@ export class OrderReceiptBuilder {
 
   formatCurrency(amount: number): string {
     return formatCurrency(amount);
-  }
-
-  private buildCompany(): OrderReceiptView['company'] {
-    const whatsapp = this.configService.get<string>('COMPANY_WHATSAPP') ?? '51947346467';
-    const whatsappDisplay = this.formatWhatsappDisplay(whatsapp);
-
-    return {
-      name: this.configService.get<string>('COMPANY_NAME') ?? 'Ansur',
-      legalName:
-        this.configService.get<string>('COMPANY_LEGAL_NAME') ?? 'Ansur Perú S.A.C.',
-      ruc: this.configService.get<string>('COMPANY_RUT') ?? '20600674651',
-      address:
-        this.configService.get<string>('COMPANY_ADDRESS') ??
-        'Cal. Garci Carbajal nro 101, int. a-12',
-      website: this.configService.get<string>('COMPANY_WEBSITE') ?? 'https://ansur.com.pe',
-      whatsapp,
-      whatsappDisplay,
-    };
   }
 
   private buildInvoice(order: Order): OrderReceiptInvoice | undefined {
@@ -126,7 +108,7 @@ export class OrderReceiptBuilder {
 
   private resolveDeliveryAddress(order: Order): string {
     if (order.delivery_type === 'pickup') {
-      return this.configService.get<string>('COMPANY_ADDRESS') ?? '—';
+      return this.companyConfigService.getCompany().address;
     }
 
     if (order.direccion) {
@@ -187,15 +169,5 @@ export class OrderReceiptBuilder {
     }
 
     return phone;
-  }
-
-  private formatWhatsappDisplay(whatsapp: string): string {
-    const digits = whatsapp.replace(/\D/g, '');
-    if (digits.startsWith('51') && digits.length === 11) {
-      const local = digits.slice(2);
-      return `${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}`;
-    }
-
-    return this.formatPhoneDisplay(whatsapp);
   }
 }

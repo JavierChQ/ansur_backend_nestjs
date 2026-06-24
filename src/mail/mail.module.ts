@@ -12,12 +12,14 @@ import { AuthModule } from '../auth/auth.module';
 import { OrderReceiptBuilder } from './order-receipt/order-receipt.builder';
 import { OrderReceiptHtmlRenderer } from './order-receipt/order-receipt-html.renderer';
 import { OrderReceiptPdfGenerator } from './order-receipt/order-receipt-pdf.generator';
+import { CompanyConfigModule } from '../company-config/company-config.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order]),
     forwardRef(() => OrdersModule),
     forwardRef(() => AuthModule),
+    CompanyConfigModule,
   ],
   providers: [
     MailService,
