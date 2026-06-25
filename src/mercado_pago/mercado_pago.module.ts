@@ -6,9 +6,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from '../orders/order.entity';
 import { InventoryModule } from '../inventory/inventory.module';
 import { AuthModule } from '../auth/auth.module';
+import { OrdersModule } from '../orders/orders.module';
 
 @Module({
-  imports: [HttpModule, TypeOrmModule.forFeature([Order]), InventoryModule, AuthModule],
+  imports: [HttpModule, TypeOrmModule.forFeature([Order]), InventoryModule, AuthModule, OrdersModule],
   providers: [MercadoPagoService],
   controllers: [MercadoPagoController],
 })

@@ -1,10 +1,9 @@
 import { HttpService } from '@nestjs/axios/dist';
-import { Injectable, HttpException, HttpStatus, Logger, OnModuleInit, ForbiddenException } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosResponse, AxiosError } from 'axios';
 import { catchError, firstValueFrom, map } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MERCADO_PAGO_API } from 'src/config/config';
 import { Installment } from './models/installment';
 import { CardTokenBody } from './models/card_token_body';
@@ -15,16 +14,14 @@ import { Repository } from 'typeorm';
 import { Order } from 'src/orders/order.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OrderStatus } from '../orders/enums/order-status.enum';
-import { InventoryService } from '../inventory/inventory.service';
-import { ORDER_PAID_EVENT, OrderPaidEvent } from '../mail/events/order-paid.event';
+import { PaymentChannel } from '../orders/enums/payment-channel.enum';
+import { assertOrderPaymentAccess } from '../orders/order-payment-access.util';
+import { OrderPaymentService } from '../orders/order-payment.service';
 import { MercadoPagoWebhookDto } from './dto/mercado-pago-webhook.dto';
 import { validateMercadoPagoWebhookSignature, extractWebhookPaymentId } from './utils/webhook-signature.util';
 import { PaymentAuthContext } from '../common/constants/checkout-auth.constants';
-
-interface OrderItemInput {
-  id_product: number;
-  quantity: number;
-}
+import { MERCADOPAGO_MIN_PRODUCTS_SUBTOTAL } from '../common/constants/checkout.constants';
+import { getOrderProductsSubtotal } from '../orders/order-amount.util';
 
 @Injectable()
 export class MercadoPagoService implements OnModuleInit {
@@ -33,8 +30,7 @@ export class MercadoPagoService implements OnModuleInit {
   constructor(
     private readonly httpService: HttpService,
     @InjectRepository(Order) private ordersRepository: Repository<Order>,
-    private inventoryService: InventoryService,
-    private eventEmitter: EventEmitter2,
+    private readonly orderPaymentService: OrderPaymentService,
     private configService: ConfigService,
   ) {}
 
@@ -78,6 +74,7 @@ export class MercadoPagoService implements OnModuleInit {
       site_id: 'MPE',
       locale: 'es-PE',
       sandbox: publicKey.startsWith('TEST-'),
+      min_online_payment_amount: MERCADOPAGO_MIN_PRODUCTS_SUBTOTAL,
     };
   }
 
@@ -154,17 +151,24 @@ export class MercadoPagoService implements OnModuleInit {
       throw new HttpException('Orden no encontrada', HttpStatus.NOT_FOUND);
     }
 
-    this.assertOrderPaymentAccess(order, auth, paymentBody.order_id);
+    assertOrderPaymentAccess(order, auth, paymentBody.order_id);
 
-    if (order.status !== OrderStatus.PENDIENTE_PAGO) {
+    let activeOrder = order;
+
+    if (order.payment_channel === PaymentChannel.WHATSAPP || order.whatsapp_intent_at) {
+      activeOrder = await this.orderPaymentService.resetToMercadoPagoCheckout(order);
+    }
+
+    if (activeOrder.status !== OrderStatus.PENDIENTE_PAGO) {
       throw new HttpException('La orden no está pendiente de pago', HttpStatus.CONFLICT);
     }
 
-    if (order.expires_at && order.expires_at < new Date()) {
+    if (activeOrder.expires_at && activeOrder.expires_at < new Date()) {
       throw new HttpException('El checkout ha expirado', HttpStatus.GONE);
     }
 
-    this.assertValidPaymentPayload(paymentBody, order);
+    this.assertValidPaymentPayload(paymentBody, activeOrder);
+    this.assertMercadoPagoMinProductsSubtotal(activeOrder);
 
     const idempotencyKey = uuidv4();
     const response = await firstValueFrom(
@@ -191,7 +195,7 @@ export class MercadoPagoService implements OnModuleInit {
         ),
     );
 
-    await this.applyPaymentStatusToOrder(order, response.data);
+    await this.applyPaymentStatusToOrder(activeOrder, response.data);
     return response.data;
   }
 
@@ -290,6 +294,18 @@ export class MercadoPagoService implements OnModuleInit {
     }
 
     return payload;
+  }
+
+  private assertMercadoPagoMinProductsSubtotal(order: Order): void {
+    const productsSubtotal = getOrderProductsSubtotal(order);
+
+    if (productsSubtotal + 0.001 < MERCADOPAGO_MIN_PRODUCTS_SUBTOTAL) {
+      throw new HttpException(
+        `El pago online requiere un subtotal mínimo de S/ ${MERCADOPAGO_MIN_PRODUCTS_SUBTOTAL.toFixed(2)} en productos. ` +
+          'Usa la opción de pago por WhatsApp.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   private assertValidPaymentPayload(
@@ -449,18 +465,10 @@ export class MercadoPagoService implements OnModuleInit {
     return Number.isFinite(orderId) && orderId > 0 ? orderId : null;
   }
 
-  private mapOrderItems(order: Order): OrderItemInput[] {
-    return order.orderHasProducts.map((ohp) => ({
-      id_product: ohp.id_product,
-      quantity: ohp.quantity,
-    }));
-  }
-
   private async applyPaymentStatusToOrder(
     order: Order,
     payment: PaymentResponse,
   ): Promise<void> {
-    const orderItems = this.mapOrderItems(order);
     const paymentId = String(payment.id);
 
     if (order.status === OrderStatus.PAGADO) {
@@ -482,24 +490,19 @@ export class MercadoPagoService implements OnModuleInit {
     }
 
     if (payment.status === 'approved') {
-      await this.inventoryService.confirmSale(order.id, orderItems);
-      order.status = OrderStatus.PAGADO;
-      order.payment_id = paymentId;
-      await this.ordersRepository.save(order);
-      this.eventEmitter.emit(
-        ORDER_PAID_EVENT,
-        new OrderPaidEvent(order.id, paymentId),
-      );
-      this.logger.log(`Orden ${order.id} marcada PAGADO vía pago ${paymentId}`);
+      await this.orderPaymentService.confirmOrderPaid(order, {
+        paymentId,
+        paymentChannel: PaymentChannel.MERCADOPAGO,
+      });
       return;
     }
 
     if (['rejected', 'cancelled'].includes(payment.status)) {
-      await this.inventoryService.releaseReservation(order.id, orderItems);
-      order.status = OrderStatus.CANCELADO;
+      await this.orderPaymentService.cancelPendingOrder(order, {
+        notes: `Mercado Pago ${paymentId}: ${payment.status}`,
+      });
       order.payment_id = paymentId;
       await this.ordersRepository.save(order);
-      this.logger.log(`Orden ${order.id} cancelada vía pago ${paymentId}`);
       return;
     }
 
@@ -517,34 +520,6 @@ export class MercadoPagoService implements OnModuleInit {
     auth: PaymentAuthContext | undefined,
     requestedOrderId: number,
   ): void {
-    if (auth?.checkout) {
-      if (auth.checkout.orderId !== requestedOrderId) {
-        throw new ForbiddenException('El token no corresponde a esta orden');
-      }
-
-      if (!order.is_guest_order) {
-        throw new ForbiddenException('Esta orden requiere inicio de sesión');
-      }
-
-      if (order.customer_email !== auth.checkout.email) {
-        throw new ForbiddenException('El token no corresponde a esta orden');
-      }
-
-      return;
-    }
-
-    if (auth?.userId) {
-      if (order.id_client && order.id_client !== auth.userId) {
-        throw new ForbiddenException('No tienes acceso a esta orden');
-      }
-
-      if (!order.id_client && order.is_guest_order) {
-        throw new ForbiddenException('Esta orden requiere checkout_token');
-      }
-
-      return;
-    }
-
-    throw new ForbiddenException('Autenticación requerida');
+    assertOrderPaymentAccess(order, auth, requestedOrderId);
   }
 }

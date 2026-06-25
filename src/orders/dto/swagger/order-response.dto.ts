@@ -62,4 +62,10 @@ export class CheckoutOrderResponseDto {
 
   @ApiPropertyOptional({ example: 'apisperu' })
   invoice_validation_source?: string;
+
+  @ApiPropertyOptional({ example: 'whatsapp', enum: ['whatsapp', 'mercadopago'] })
+  payment_channel?: string;
+
+  @ApiPropertyOptional({ example: '2026-06-23T12:30:00.000Z' })
+  whatsapp_intent_at?: Date;
 }

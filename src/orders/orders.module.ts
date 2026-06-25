@@ -4,6 +4,8 @@ import { OrdersController } from './orders.controller';
 import { CheckoutService } from './checkout.service';
 import { GuestUserProvisioningService } from './guest-user-provisioning.service';
 import { OrderInvoiceService } from './order-invoice.service';
+import { OrderPaymentService } from './order-payment.service';
+import { WhatsappPaymentService } from './whatsapp-payment.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from './order.entity';
 import { OrderHasProducts } from './order_has_products.entity';
@@ -15,6 +17,7 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { Rol } from 'src/roles/rol.entity';
 import { AuthModule } from '../auth/auth.module';
 import { IdentityModule } from '../identity/identity.module';
+import { CompanyConfigModule } from '../company-config/company-config.module';
 
 @Module({
   imports: [
@@ -22,6 +25,7 @@ import { IdentityModule } from '../identity/identity.module';
     CartModule,
     InventoryModule,
     IdentityModule,
+    CompanyConfigModule,
     forwardRef(() => AuthModule),
   ],
   providers: [
@@ -29,8 +33,15 @@ import { IdentityModule } from '../identity/identity.module';
     CheckoutService,
     GuestUserProvisioningService,
     OrderInvoiceService,
+    OrderPaymentService,
+    WhatsappPaymentService,
   ],
   controllers: [OrdersController],
-  exports: [OrdersService, CheckoutService, GuestUserProvisioningService],
+  exports: [
+    OrdersService,
+    CheckoutService,
+    GuestUserProvisioningService,
+    OrderPaymentService,
+  ],
 })
 export class OrdersModule {}

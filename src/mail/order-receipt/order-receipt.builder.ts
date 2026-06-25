@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Order } from '../../orders/order.entity';
 import { getOrderReferenceCode } from '../../orders/order-reference.util';
+import { PaymentChannel } from '../../orders/enums/payment-channel.enum';
 import { CompanyConfigService } from '../../company-config/company-config.service';
 import { formatCurrency, getIgvRate } from '../utils/tax.util';
 import {
@@ -38,7 +39,7 @@ export class OrderReceiptBuilder {
       orderDate: this.formatOrderDate(order.created_at),
       customerName: this.resolveCustomerName(order),
       customerEmail: order.customer_email ?? order.user?.email ?? '—',
-      paymentMethodLabel: PAYMENT_METHOD_LABEL,
+      paymentMethodLabel: this.resolvePaymentMethodLabel(order),
       paymentStatusLabel: PAYMENT_STATUS_CONFIRMED,
       deliveryTypeLabel: this.resolveDeliveryTypeLabel(order),
       deliveryAddress: this.resolveDeliveryAddress(order),
@@ -57,6 +58,14 @@ export class OrderReceiptBuilder {
 
   formatCurrency(amount: number): string {
     return formatCurrency(amount);
+  }
+
+  private resolvePaymentMethodLabel(order: Order): string {
+    if (order.payment_channel === PaymentChannel.WHATSAPP) {
+      return 'WhatsApp';
+    }
+
+    return PAYMENT_METHOD_LABEL;
   }
 
   private buildInvoice(order: Order): OrderReceiptInvoice | undefined {

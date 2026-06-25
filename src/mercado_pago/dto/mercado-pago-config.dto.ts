@@ -12,4 +12,10 @@ export class MercadoPagoConfigDto {
 
   @ApiProperty({ example: true, description: 'true si public_key usa prefijo TEST-' })
   sandbox: boolean;
+
+  @ApiProperty({
+    example: 100,
+    description: 'Subtotal mínimo de productos (sin envío) para pagar online con Mercado Pago',
+  })
+  min_online_payment_amount: number;
 }

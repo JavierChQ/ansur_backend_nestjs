@@ -3,6 +3,7 @@ import { User } from 'src/users/user.entity';
 import { Address } from '../address/address.entity';
 import { OrderHasProducts } from './order_has_products.entity';
 import { OrderStatus } from './enums/order-status.enum';
+import { PaymentChannel } from './enums/payment-channel.enum';
 
 @Entity('orders')
 export class Order {
@@ -33,6 +34,21 @@ export class Order {
 
     @Column({ type: 'varchar', length: 100, nullable: true })
     payment_id: string;
+
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    payment_channel: PaymentChannel | null;
+
+    @Column({ type: 'datetime', nullable: true })
+    whatsapp_intent_at: Date;
+
+    @Column({ type: 'datetime', nullable: true })
+    payment_confirmed_at: Date;
+
+    @Column({ nullable: true })
+    payment_confirmed_by: number;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    payment_notes: string;
 
     @Column({ type: 'datetime', nullable: true })
     receipt_sent_at: Date;
